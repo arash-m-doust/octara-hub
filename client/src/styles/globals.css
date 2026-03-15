@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-surface: #F5F3F0;
+    --color-surface-raised: #FAFAF8;
+    --color-surface-inset: #EDEAE6;
+    --color-border: #DDD9D3;
+    --color-border-light: #E8E5E0;
+    --color-text-primary: #2C2C2C;
+    --color-text-secondary: #6B6B6B;
+    --color-text-muted: #9B9B9B;
+    --color-accent: #5B7FBF;
+    --color-accent-soft: #E8EDF5;
+  }
+
+  html {
+    font-family: 'Inter', 'Vazirmatn', system-ui, sans-serif;
+  }
+
+  html[dir='rtl'] {
+    font-family: 'Vazirmatn', 'Inter', system-ui, sans-serif;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .skeu-panel {
+    @apply bg-surface-raised rounded-skeu shadow-skeu-panel border border-border-light;
+  }
+
+  .skeu-panel-raised {
+    @apply bg-white rounded-skeu-lg shadow-skeu-panel border border-border-light;
+  }
+
+  .skeu-inset {
+    @apply bg-surface-inset rounded-skeu shadow-skeu-inset border border-border;
+  }
+
+  .skeu-button {
+    @apply px-4 py-2 rounded-skeu font-medium text-sm transition-all duration-150
+           bg-surface-raised border border-border shadow-skeu-embossed
+           hover:shadow-skeu-raised active:shadow-skeu-inset active:bg-surface-inset;
+  }
+
+  .skeu-button-primary {
+    @apply skeu-button bg-accent text-white border-accent/30
+           hover:bg-accent/90 active:bg-accent/80;
+  }
+
+  .skeu-input {
+    @apply w-full px-3 py-2 rounded-skeu bg-surface-inset border border-border
+           shadow-skeu-inset focus:outline-none focus:ring-2 focus:ring-accent/30
+           focus:border-accent/50 transition-all duration-150 text-sm;
+  }
+}

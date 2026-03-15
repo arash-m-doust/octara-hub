@@ -1,0 +1,98 @@
+{
+  "app": {
+    "name": "BexChat"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "displayName": "Display Name",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "sendResetLink": "Send Reset Link"
+  },
+  "workspace": {
+    "create": "Create Workspace",
+    "name": "Workspace Name",
+    "description": "Description",
+    "join": "Join Workspace",
+    "inviteCode": "Invite Code",
+    "settings": "Workspace Settings",
+    "invite": "Invite Members",
+    "members": "Members",
+    "roles": "Roles",
+    "leave": "Leave Workspace"
+  },
+  "channel": {
+    "create": "Create Channel",
+    "name": "Channel Name",
+    "description": "Description",
+    "private": "Private Channel",
+    "category": "Category",
+    "createCategory": "Create Category",
+    "settings": "Channel Settings",
+    "archive": "Archive Channel"
+  },
+  "chat": {
+    "typeMessage": "Type a message...",
+    "edit": "Edit",
+    "delete": "Delete",
+    "reply": "Reply",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "reactions": "Reactions",
+    "thread": "Thread",
+    "typing": "is typing...",
+    "edited": "(edited)",
+    "pinned": "Pinned Messages",
+    "noMessages": "No messages yet. Start the conversation!"
+  },
+  "dm": {
+    "title": "Direct Messages",
+    "new": "New Message",
+    "groupDm": "Group DM",
+    "selectUsers": "Select users"
+  },
+  "files": {
+    "upload": "Upload File",
+    "browser": "Files",
+    "download": "Download",
+    "delete": "Delete",
+    "noFiles": "No files shared yet."
+  },
+  "search": {
+    "placeholder": "Search messages and files...",
+    "messages": "Messages",
+    "files": "Files",
+    "noResults": "No results found."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "noNotifications": "No notifications."
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "users": "Users",
+    "auditLogs": "Audit Logs",
+    "stats": "Statistics"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "error": "An error occurred.",
+    "success": "Success!",
+    "language": "Language",
+    "english": "English",
+    "persian": "فارسی"
+  }
+}

@@ -1,0 +1,15 @@
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/auth/', include('apps.authentication.urls')),
+    path('api/workspaces/', include('apps.workspaces.urls')),
+    path('api/channels/', include('apps.messaging.urls')),
+    path('api/dm/', include('apps.dm.urls')),
+    path('api/files/', include('apps.files.urls')),
+    path('api/notifications/', include('apps.notifications.urls')),
+    path('api/search/', include('apps.search.urls')),
+    path('api/admin-panel/', include('apps.admin_panel.urls')),
+    path('api/realtime/', include('realtime.urls')),
+]

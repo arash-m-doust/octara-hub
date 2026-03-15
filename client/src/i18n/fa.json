@@ -1,0 +1,98 @@
+{
+  "app": {
+    "name": "بکس‌چت"
+  },
+  "auth": {
+    "login": "ورود",
+    "register": "ثبت‌نام",
+    "logout": "خروج",
+    "username": "نام کاربری",
+    "email": "ایمیل",
+    "password": "رمز عبور",
+    "confirmPassword": "تأیید رمز عبور",
+    "displayName": "نام نمایشی",
+    "forgotPassword": "رمز عبور را فراموش کردید؟",
+    "resetPassword": "بازنشانی رمز عبور",
+    "noAccount": "حساب کاربری ندارید؟",
+    "hasAccount": "حساب کاربری دارید؟",
+    "sendResetLink": "ارسال لینک بازنشانی"
+  },
+  "workspace": {
+    "create": "ایجاد فضای کاری",
+    "name": "نام فضای کاری",
+    "description": "توضیحات",
+    "join": "پیوستن به فضای کاری",
+    "inviteCode": "کد دعوت",
+    "settings": "تنظیمات فضای کاری",
+    "invite": "دعوت اعضا",
+    "members": "اعضا",
+    "roles": "نقش‌ها",
+    "leave": "خروج از فضای کاری"
+  },
+  "channel": {
+    "create": "ایجاد کانال",
+    "name": "نام کانال",
+    "description": "توضیحات",
+    "private": "کانال خصوصی",
+    "category": "دسته‌بندی",
+    "createCategory": "ایجاد دسته‌بندی",
+    "settings": "تنظیمات کانال",
+    "archive": "آرشیو کانال"
+  },
+  "chat": {
+    "typeMessage": "پیام بنویسید...",
+    "edit": "ویرایش",
+    "delete": "حذف",
+    "reply": "پاسخ",
+    "pin": "سنجاق",
+    "unpin": "برداشتن سنجاق",
+    "reactions": "واکنش‌ها",
+    "thread": "رشته",
+    "typing": "در حال نوشتن...",
+    "edited": "(ویرایش شده)",
+    "pinned": "پیام‌های سنجاق شده",
+    "noMessages": "هنوز پیامی نیست. گفتگو را شروع کنید!"
+  },
+  "dm": {
+    "title": "پیام‌های مستقیم",
+    "new": "پیام جدید",
+    "groupDm": "گروه پیام مستقیم",
+    "selectUsers": "انتخاب کاربران"
+  },
+  "files": {
+    "upload": "آپلود فایل",
+    "browser": "فایل‌ها",
+    "download": "دانلود",
+    "delete": "حذف",
+    "noFiles": "هنوز فایلی به اشتراک گذاشته نشده."
+  },
+  "search": {
+    "placeholder": "جستجو در پیام‌ها و فایل‌ها...",
+    "messages": "پیام‌ها",
+    "files": "فایل‌ها",
+    "noResults": "نتیجه‌ای یافت نشد."
+  },
+  "notifications": {
+    "title": "اعلان‌ها",
+    "markAllRead": "خواندن همه",
+    "noNotifications": "اعلانی نیست."
+  },
+  "admin": {
+    "dashboard": "داشبورد مدیریت",
+    "users": "کاربران",
+    "auditLogs": "گزارش عملیات",
+    "stats": "آمار"
+  },
+  "common": {
+    "save": "ذخیره",
+    "cancel": "لغو",
+    "delete": "حذف",
+    "confirm": "تأیید",
+    "loading": "در حال بارگذاری...",
+    "error": "خطایی رخ داد.",
+    "success": "موفقیت!",
+    "language": "زبان",
+    "english": "English",
+    "persian": "فارسی"
+  }
+}
