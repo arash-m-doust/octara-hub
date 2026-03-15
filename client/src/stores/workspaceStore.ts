@@ -28,10 +28,27 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   members: [],
   currentChannel: null,
 
+  // --- Fetches (Gemini Fixed for Pagination Support) ---
   fetchWorkspaces: async () => {
-    const workspaces = await workspaceApi.list()
-    set({ workspaces })
+    const res = await workspaceApi.list()
+    set({ workspaces: res.results || res })
   },
+
+  fetchCategories: async (wid) => {
+    const res = await workspaceApi.categories(wid)
+    set({ categories: res.results || res })
+  },
+
+  fetchChannels: async (wid) => {
+    const res = await workspaceApi.channels(wid)
+    set({ channels: res.results || res })
+  },
+
+  fetchMembers: async (wid) => {
+    const res = await workspaceApi.members(wid)
+    set({ members: res.results || res })
+  },
+  // --------------------------------------------------
 
   setCurrentWorkspace: (ws) => {
     set({ currentWorkspace: ws, currentChannel: null, categories: [], channels: [], members: [] })
@@ -40,21 +57,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       get().fetchChannels(ws.id)
       get().fetchMembers(ws.id)
     }
-  },
-
-  fetchCategories: async (wid) => {
-    const categories = await workspaceApi.categories(wid)
-    set({ categories })
-  },
-
-  fetchChannels: async (wid) => {
-    const channels = await workspaceApi.channels(wid)
-    set({ channels })
-  },
-
-  fetchMembers: async (wid) => {
-    const members = await workspaceApi.members(wid)
-    set({ members })
   },
 
   setCurrentChannel: (ch) => set({ currentChannel: ch }),

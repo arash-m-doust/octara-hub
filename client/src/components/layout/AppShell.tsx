@@ -13,10 +13,15 @@ export function AppShell() {
   const { fetchWorkspaces, currentWorkspace } = useWorkspaceStore()
   const { rightPanel } = useUIStore()
 
-  useEffect(() => {
+  // useEffect(() => {
+  //   fetchMe()
+  //   fetchWorkspaces()
+  // }, [fetchMe, fetchWorkspaces])
+
+useEffect(() => {
     fetchMe()
     fetchWorkspaces()
-  }, [fetchMe, fetchWorkspaces])
+  }, [])
 
   useEffect(() => {
     if (user) {

@@ -12,7 +12,22 @@ from .permissions import IsWorkspaceMember, IsWorkspaceOwner, CanManageChannels,
 
 # ─── Workspaces ───
 
+# class WorkspaceListCreateView(generics.ListCreateAPIView):
+#     def get_serializer_class(self):
+#         if self.request.method == 'POST':
+#             return WorkspaceCreateSerializer
+#         return WorkspaceSerializer
+
+#     def get_queryset(self):
+#         return Workspace.objects.filter(
+#             members__user=self.request.user
+#         ).distinct()
+
+
+# Gemini Fixed
 class WorkspaceListCreateView(generics.ListCreateAPIView):
+    ordering = ('-created_at',) 
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return WorkspaceCreateSerializer
@@ -22,7 +37,6 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
         return Workspace.objects.filter(
             members__user=self.request.user
         ).distinct()
-
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = WorkspaceSerializer
