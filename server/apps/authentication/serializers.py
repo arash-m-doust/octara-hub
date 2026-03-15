@@ -42,7 +42,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
         )
-        UserProfile.objects.create(user=user, display_name=display_name)
+        # Profile may already exist via post_save signal
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if display_name:
+            profile.display_name = display_name
+            profile.save(update_fields=['display_name'])
         return user
 
 

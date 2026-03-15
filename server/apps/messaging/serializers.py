@@ -34,9 +34,6 @@ class MessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'is_edited', 'is_deleted', 'created_at', 'updated_at']
 
     def get_reactions(self, obj):
-        reactions = obj.reactions.values('emoji').annotate(
-            count=serializers.IntegerField()
-        ) if hasattr(obj, '_prefetched_objects_cache') else []
         request = self.context.get('request')
         result = {}
         for reaction in obj.reactions.all():
