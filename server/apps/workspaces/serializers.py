@@ -102,7 +102,8 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
         WorkspaceMember.objects.create(workspace=workspace, user=user, role=default_role)
         # Create default category and channel
         category = Category.objects.create(workspace=workspace, name='General')
-        Channel.objects.create(workspace=workspace, category=category, name='general', description='General discussion')
+        channel = Channel.objects.create(workspace=workspace, category=category, name='general', description='General discussion')
+        ChannelMember.objects.create(channel=channel, user=user)
         return workspace
 
 

@@ -44,6 +44,16 @@ class ChannelMessageListView(generics.ListCreateAPIView):
         publish_event(f'channel_{channel_id}', 'message.created', {
             'message': MessageSerializer(message, context={'request': self.request}).data,
         })
+        # Store for create response
+        self._created_message = message
+
+    def create(self, request, *args, **kwargs):
+        """Override to return full MessageSerializer response (with user, reactions, etc.)."""
+        response = super().create(request, *args, **kwargs)
+        message = self._created_message
+        full_data = MessageSerializer(message, context={'request': request}).data
+        response.data = full_data
+        return response
 
 
 class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -56,7 +66,7 @@ class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
     def perform_update(self, serializer):
-        if serializer.instance.user != self.request.user:
+        if serializer.instance.user != self.request.user and not self.request.user.is_superuser:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('You can only edit your own messages.')
         serializer.save(is_edited=True)
@@ -66,7 +76,7 @@ class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
         })
 
     def perform_destroy(self, instance):
-        if instance.user != self.request.user:
+        if instance.user != self.request.user and not self.request.user.is_superuser:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('You can only delete your own messages.')
         instance.is_deleted = True

@@ -13,14 +13,20 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
   const { t } = useTranslation()
   const [content, setContent] = useState('')
   const [uploading, setUploading] = useState(false)
-  const { replyTo, setReplyTo } = useMessageStore()
+  const [error, setError] = useState('')
+  const { replyTo, setReplyTo, fetchMessages } = useMessageStore()
   const { currentChannel } = useWorkspaceStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSend = () => {
     if (!content.trim()) return
-    onSend(content.trim())
-    setContent('')
+    setError('')
+    try {
+      onSend(content.trim())
+      setContent('')
+    } catch {
+      setError('Failed to send message')
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -34,13 +40,17 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
     const file = e.target.files?.[0]
     if (!file || !currentChannel) return
     setUploading(true)
+    setError('')
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('channel_id', String(currentChannel.id))
       await fileApi.upload(formData)
-    } catch {
-      // Handle error
+      // Refresh messages to show the file message
+      await fetchMessages(currentChannel.id)
+    } catch (err) {
+      console.error('File upload failed:', err)
+      setError('Failed to upload file')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -57,6 +67,10 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
           <span className="text-muted truncate flex-1">{replyTo.content}</span>
           <button onClick={() => setReplyTo(null)} className="text-muted hover:text-gray-600">✕</button>
         </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-danger mb-1 px-3">{error}</div>
       )}
 
       <div className="flex items-end gap-2 bg-surface-raised rounded-skeu-lg border border-border-light shadow-skeu-panel p-2">

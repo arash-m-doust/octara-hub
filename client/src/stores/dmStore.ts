@@ -24,8 +24,12 @@ export const useDMStore = create<DMState>((set, get) => ({
   isLoading: false,
 
   fetchThreads: async () => {
-    const res = await dmApi.threads()
-    set({ threads: extractResults(res) })
+    try {
+      const res = await dmApi.threads()
+      set({ threads: extractResults(res) })
+    } catch (err) {
+      console.error('Failed to fetch DM threads:', err)
+    }
   },
 
   setCurrentThread: (thread) => {
@@ -38,13 +42,19 @@ export const useDMStore = create<DMState>((set, get) => ({
     try {
       const res = await dmApi.messages(threadId)
       set({ messages: res.results.reverse(), isLoading: false })
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch DM messages:', err)
       set({ isLoading: false })
     }
   },
 
   sendMessage: async (threadId, content) => {
-    await dmApi.sendMessage(threadId, { content })
+    const msg = await dmApi.sendMessage(threadId, { content })
+    // Add message to local state immediately (don't rely on SSE)
+    set((s) => {
+      if (s.messages.some((m) => m.id === msg.id)) return s
+      return { messages: [...s.messages, msg] }
+    })
   },
 
   createThread: async (userIds, name) => {
@@ -56,5 +66,8 @@ export const useDMStore = create<DMState>((set, get) => ({
     return thread
   },
 
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  addMessage: (msg) => set((s) => {
+    if (s.messages.some((m) => m.id === msg.id)) return s
+    return { messages: [...s.messages, msg] }
+  }),
 }))

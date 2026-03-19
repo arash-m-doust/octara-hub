@@ -46,7 +46,8 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         hasMore: !!res.next,
         nextCursor: extractCursor(res.next),
       })
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch messages:', err)
       set({ isLoading: false })
     }
   },
@@ -63,14 +64,20 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         hasMore: !!res.next,
         nextCursor: extractCursor(res.next),
       }))
-    } catch {
+    } catch (err) {
+      console.error('Failed to load more messages:', err)
       set({ isLoading: false })
     }
   },
 
   sendMessage: async (channelId, content, replyTo) => {
-    await messageApi.send(channelId, { content, reply_to: replyTo })
-    set({ replyTo: null })
+    const msg = await messageApi.send(channelId, { content, reply_to: replyTo })
+    // Add message to local state immediately (don't rely on SSE)
+    set((s) => {
+      // Avoid duplicates (SSE might also deliver it)
+      if (s.messages.some((m) => m.id === msg.id)) return s
+      return { messages: [...s.messages, msg], replyTo: null }
+    })
   },
 
   editMessage: async (channelId, messageId, content) => {
@@ -89,6 +96,12 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
   addReaction: async (channelId, messageId, emoji) => {
     await messageApi.addReaction(channelId, messageId, emoji)
+    // Refetch messages to get updated reaction counts
+    const { messages } = get()
+    if (messages.length > 0) {
+      const res = await messageApi.list(channelId)
+      set({ messages: res.results.reverse() })
+    }
   },
 
   removeReaction: async (channelId, messageId, emoji) => {
@@ -97,7 +110,11 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
   setReplyTo: (msg) => set({ replyTo: msg }),
 
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  addMessage: (msg) => set((s) => {
+    // Avoid duplicates
+    if (s.messages.some((m) => m.id === msg.id)) return s
+    return { messages: [...s.messages, msg] }
+  }),
 
   clear: () => set({ messages: [], hasMore: false, nextCursor: null, replyTo: null }),
 }))

@@ -91,6 +91,15 @@ class DMMessageListView(generics.ListCreateAPIView):
         publish_event(f'dm_{thread_id}', 'message.created', {
             'message': MessageSerializer(message, context={'request': self.request}).data,
         })
+        self._created_message = message
+
+    def create(self, request, *args, **kwargs):
+        """Override to return full MessageSerializer response."""
+        response = super().create(request, *args, **kwargs)
+        message = self._created_message
+        full_data = MessageSerializer(message, context={'request': request}).data
+        response.data = full_data
+        return response
 
 
 class DMMessageDetailView(generics.RetrieveUpdateDestroyAPIView):

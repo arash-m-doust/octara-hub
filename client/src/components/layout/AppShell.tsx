@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import { realtime } from '@/realtime/connection'
@@ -7,37 +7,49 @@ import { ServerRail } from './ServerRail'
 import { ChannelSidebar } from './ChannelSidebar'
 import { MainPanel } from './MainPanel'
 import { RightPanel } from './RightPanel'
+import { AdminPanel } from '@/components/admin/AdminPanel'
 
 export function AppShell() {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const { fetchWorkspaces } = useWorkspaceStore()
   const { rightPanel } = useUIStore()
+  const [showAdmin, setShowAdmin] = useState(false)
 
-  // Fetch workspaces on mount (NOT fetchMe - that is handled by App.tsx)
+  useEffect(() => { fetchWorkspaces() }, [fetchWorkspaces])
   useEffect(() => {
-    fetchWorkspaces()
-  }, [fetchWorkspaces])
-
-  useEffect(() => {
-    if (user) {
-      realtime.connect()
-      return () => realtime.disconnect()
-    }
+    if (user) { realtime.connect(); return () => realtime.disconnect() }
   }, [user])
 
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
-      {/* Server Rail - 56px */}
       <ServerRail />
-
-      {/* Channel Sidebar - 240px */}
       <ChannelSidebar />
-
-      {/* Main Chat Panel - flex grow */}
       <MainPanel />
-
-      {/* Right Panel - 260px, conditional */}
       {rightPanel && <RightPanel />}
+
+      {/* Top-right controls */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-50">
+        {user?.is_superuser && (
+          <button
+            onClick={() => setShowAdmin(true)}
+            className="p-1.5 rounded-skeu bg-surface-raised shadow-skeu-embossed hover:bg-white text-sm"
+            title="Admin Panel"
+          >
+            ⚙
+          </button>
+        )}
+        <button
+          onClick={logout}
+          className="p-1.5 rounded-skeu bg-surface-raised shadow-skeu-embossed hover:bg-white text-sm text-danger"
+          title="Logout"
+        >
+          ⏻
+        </button>
+      </div>
+
+      {user?.is_superuser && (
+        <AdminPanel isOpen={showAdmin} onClose={() => setShowAdmin(false)} />
+      )}
     </div>
   )
 }
