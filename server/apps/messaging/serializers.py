@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.authentication.serializers import UserSerializer
+from apps.files.serializers import AttachmentSerializer
 from .models import Message, MessageReaction, PinnedMessage
 
 
@@ -22,14 +23,14 @@ class MessageSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     reactions = serializers.SerializerMethodField()
     reply_to_preview = serializers.SerializerMethodField()
-    attachment_count = serializers.SerializerMethodField()
+    attachments = AttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Message
         fields = [
             'id', 'channel', 'dm_thread', 'user', 'content', 'reply_to',
             'is_edited', 'is_deleted', 'created_at', 'updated_at',
-            'reactions', 'reply_to_preview', 'attachment_count',
+            'reactions', 'reply_to_preview', 'attachments',
         ]
         read_only_fields = ['id', 'user', 'is_edited', 'is_deleted', 'created_at', 'updated_at']
 
@@ -52,9 +53,6 @@ class MessageSerializer(serializers.ModelSerializer):
                 'user': UserSerializer(obj.reply_to.user).data,
             }
         return None
-
-    def get_attachment_count(self, obj):
-        return obj.attachments.count() if hasattr(obj, 'attachments') else 0
 
 
 class MessageCreateSerializer(serializers.ModelSerializer):

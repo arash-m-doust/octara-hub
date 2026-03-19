@@ -19,6 +19,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         return f'/api/files/{obj.id}/'
 
     def get_preview_url(self, obj):
-        if obj.preview_path:
+        # For images, always return preview URL (view serves original if no thumbnail)
+        if obj.preview_path or obj.mime_type.startswith('image/'):
             return f'/api/files/{obj.id}/preview/'
         return None

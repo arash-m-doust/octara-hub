@@ -73,7 +73,7 @@ class DMMessageListView(generics.ListCreateAPIView):
             return Message.objects.none()
         return Message.objects.filter(
             dm_thread_id=thread_id, is_deleted=False,
-        ).select_related('user', 'user__profile', 'reply_to', 'reply_to__user').prefetch_related('reactions')
+        ).select_related('user', 'user__profile', 'reply_to', 'reply_to__user').prefetch_related('reactions', 'attachments')
 
     def perform_create(self, serializer):
         thread_id = self.kwargs['thread_id']

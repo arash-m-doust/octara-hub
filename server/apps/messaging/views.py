@@ -31,7 +31,7 @@ class ChannelMessageListView(generics.ListCreateAPIView):
         return Message.objects.filter(
             channel_id=self.kwargs['channel_id'],
             is_deleted=False,
-        ).select_related('user', 'user__profile', 'reply_to', 'reply_to__user').prefetch_related('reactions')
+        ).select_related('user', 'user__profile', 'reply_to', 'reply_to__user').prefetch_related('reactions', 'attachments')
 
     def perform_create(self, serializer):
         channel_id = self.kwargs['channel_id']

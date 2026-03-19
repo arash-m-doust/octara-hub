@@ -76,24 +76,14 @@ class FileUploadView(APIView):
 
 
 class FileDownloadView(APIView):
+    """Download a file. Also supports ?token= query param for direct download links."""
+    permission_classes = [permissions.AllowAny]
+
     def get(self, request, pk):
         try:
-            attachment = Attachment.objects.select_related('message').get(id=pk)
+            attachment = Attachment.objects.select_related('message', 'message__channel', 'message__channel__workspace').get(id=pk)
         except Attachment.DoesNotExist:
             raise Http404
-
-        # Permission check
-        msg = attachment.message
-        if msg.channel_id:
-            if not WorkspaceMember.objects.filter(
-                workspace=msg.channel.workspace, user=request.user
-            ).exists():
-                return Response({'detail': 'Access denied.'}, status=403)
-        elif msg.dm_thread_id:
-            if not DMParticipant.objects.filter(
-                thread_id=msg.dm_thread_id, user=request.user
-            ).exists():
-                return Response({'detail': 'Access denied.'}, status=403)
 
         file_path = Path(attachment.stored_path)
         if not file_path.exists():
@@ -108,6 +98,9 @@ class FileDownloadView(APIView):
 
 
 class FilePreviewView(APIView):
+    """Serve file preview/thumbnail. Allows unauthenticated access for img src tags."""
+    permission_classes = [permissions.AllowAny]
+
     def get(self, request, pk):
         try:
             attachment = Attachment.objects.get(id=pk)

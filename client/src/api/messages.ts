@@ -1,6 +1,20 @@
 import { api } from './client'
 import type { User } from './auth'
 
+export interface MessageAttachment {
+  id: number
+  message: number
+  user: number
+  workspace: number | null
+  original_filename: string
+  mime_type: string
+  file_size: number
+  checksum: string
+  created_at: string
+  download_url: string
+  preview_url: string | null
+}
+
 export interface Message {
   id: number
   channel: number | null
@@ -14,7 +28,7 @@ export interface Message {
   updated_at: string
   reactions: { emoji: string; count: number; reacted: boolean }[]
   reply_to_preview: { id: number; content: string; user: User } | null
-  attachment_count: number
+  attachments: MessageAttachment[]
 }
 
 export interface PaginatedResponse<T> {
