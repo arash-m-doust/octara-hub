@@ -30,23 +30,49 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentChannel: null,
 
   fetchWorkspaces: async () => {
-    const res = await workspaceApi.list()
-    set({ workspaces: extractResults(res) })
+    try {
+      const res = await workspaceApi.list()
+      const list = extractResults(res)
+      set({ workspaces: list })
+      // Auto-select first workspace if none selected
+      if (!get().currentWorkspace && list.length > 0) {
+        get().setCurrentWorkspace(list[0])
+      }
+    } catch (err) {
+      console.error('Failed to fetch workspaces:', err)
+    }
   },
 
   fetchCategories: async (wid) => {
-    const res = await workspaceApi.categories(wid)
-    set({ categories: extractResults(res) })
+    try {
+      const res = await workspaceApi.categories(wid)
+      set({ categories: extractResults(res) })
+    } catch (err) {
+      console.error('Failed to fetch categories:', err)
+    }
   },
 
   fetchChannels: async (wid) => {
-    const res = await workspaceApi.channels(wid)
-    set({ channels: extractResults(res) })
+    try {
+      const res = await workspaceApi.channels(wid)
+      const list = extractResults(res)
+      set({ channels: list })
+      // Auto-select first channel if none selected
+      if (!get().currentChannel && list.length > 0) {
+        set({ currentChannel: list[0] })
+      }
+    } catch (err) {
+      console.error('Failed to fetch channels:', err)
+    }
   },
 
   fetchMembers: async (wid) => {
-    const res = await workspaceApi.members(wid)
-    set({ members: extractResults(res) })
+    try {
+      const res = await workspaceApi.members(wid)
+      set({ members: extractResults(res) })
+    } catch (err) {
+      console.error('Failed to fetch members:', err)
+    }
   },
 
   setCurrentWorkspace: (ws) => {

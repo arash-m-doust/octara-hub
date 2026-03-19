@@ -14,13 +14,15 @@ export function ChannelSidebar() {
   const { t } = useTranslation()
   const { currentWorkspace, categories, channels, currentChannel, setCurrentChannel, createChannel, createCategory } = useWorkspaceStore()
   const { view } = useUIStore()
-  const { threads, currentThread, setCurrentThread, fetchThreads } = useDMStore()
+  const { threads, currentThread, setCurrentThread } = useDMStore()
   const { user } = useAuthStore()
   const [showCreateChannel, setShowCreateChannel] = useState(false)
   const [showCreateCategory, setShowCreateCategory] = useState(false)
-  const [newName, setNewName] = useState('')
+  const [newChannelName, setNewChannelName] = useState('')
+  const [newCategoryName, setNewCategoryName] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>()
   const [isPrivate, setIsPrivate] = useState(false)
+  const [error, setError] = useState('')
 
   // DM view
   if (view === 'dm') {
@@ -70,23 +72,36 @@ export function ChannelSidebar() {
   }
 
   const handleCreateChannel = async () => {
-    if (!newName.trim() || !currentWorkspace) return
-    const ch = await createChannel(currentWorkspace.id, {
-      name: newName.trim().toLowerCase().replace(/\s+/g, '-'),
-      category: selectedCategory,
-      is_private: isPrivate,
-    })
-    setCurrentChannel(ch)
-    setShowCreateChannel(false)
-    setNewName('')
-    setIsPrivate(false)
+    if (!newChannelName.trim() || !currentWorkspace) return
+    setError('')
+    try {
+      const ch = await createChannel(currentWorkspace.id, {
+        name: newChannelName.trim().toLowerCase().replace(/\s+/g, '-'),
+        category: selectedCategory,
+        is_private: isPrivate,
+      })
+      setCurrentChannel(ch)
+      setShowCreateChannel(false)
+      setNewChannelName('')
+      setIsPrivate(false)
+      setSelectedCategory(undefined)
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'detail' in err ? String((err as { detail: string }).detail) : 'Failed to create channel'
+      setError(msg)
+    }
   }
 
   const handleCreateCategory = async () => {
-    if (!newName.trim() || !currentWorkspace) return
-    await createCategory(currentWorkspace.id, { name: newName.trim() })
-    setShowCreateCategory(false)
-    setNewName('')
+    if (!newCategoryName.trim() || !currentWorkspace) return
+    setError('')
+    try {
+      await createCategory(currentWorkspace.id, { name: newCategoryName.trim() })
+      setShowCreateCategory(false)
+      setNewCategoryName('')
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'detail' in err ? String((err as { detail: string }).detail) : 'Failed to create category'
+      setError(msg)
+    }
   }
 
   return (
@@ -94,13 +109,22 @@ export function ChannelSidebar() {
       {/* Workspace Header */}
       <div className="p-3 border-b border-border-light flex items-center justify-between">
         <h2 className="font-semibold text-sm text-gray-700 truncate">{currentWorkspace.name}</h2>
-        <button
-          onClick={() => setShowCreateChannel(true)}
-          className="text-muted hover:text-accent text-lg"
-          title={t('channel.create')}
-        >
-          +
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { setShowCreateCategory(true); setError('') }}
+            className="text-muted hover:text-accent text-xs px-1"
+            title="Create Category"
+          >
+            📁+
+          </button>
+          <button
+            onClick={() => { setShowCreateChannel(true); setError('') }}
+            className="text-muted hover:text-accent text-lg"
+            title={t('channel.create')}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {/* Channel List */}
@@ -152,6 +176,18 @@ export function ChannelSidebar() {
             </div>
           </div>
         )}
+
+        {categories.length === 0 && channels.length === 0 && (
+          <div className="text-center py-4">
+            <p className="text-xs text-muted">No channels yet</p>
+            <button
+              onClick={() => { setShowCreateChannel(true); setError('') }}
+              className="text-xs text-accent hover:underline mt-1"
+            >
+              Create your first channel
+            </button>
+          </div>
+        )}
       </div>
 
       {/* User Bar */}
@@ -169,8 +205,9 @@ export function ChannelSidebar() {
         <div className="space-y-3">
           <Input
             label={t('channel.name')}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            value={newChannelName}
+            onChange={(e) => setNewChannelName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateChannel()}
             placeholder="new-channel"
             autoFocus
           />
@@ -178,19 +215,42 @@ export function ChannelSidebar() {
             <input type="checkbox" id="private" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
             <label htmlFor="private" className="text-sm">{t('channel.private')}</label>
           </div>
-          <select
-            className="skeu-input"
-            value={selectedCategory || ''}
-            onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">No category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <select
+              className="skeu-input w-full"
+              value={selectedCategory || ''}
+              onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              <option value="">No category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="text-xs text-danger">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setShowCreateChannel(false)}>{t('common.cancel')}</Button>
             <Button variant="primary" onClick={handleCreateChannel}>{t('channel.create')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create Category Modal */}
+      <Modal isOpen={showCreateCategory} onClose={() => setShowCreateCategory(false)} title="Create Category">
+        <div className="space-y-3">
+          <Input
+            label="Category Name"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateCategory()}
+            placeholder="e.g. Development"
+            autoFocus
+          />
+          {error && <p className="text-xs text-danger">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setShowCreateCategory(false)}>{t('common.cancel')}</Button>
+            <Button variant="primary" onClick={handleCreateCategory}>Create Category</Button>
           </div>
         </div>
       </Modal>

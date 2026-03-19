@@ -78,7 +78,8 @@ class WorkspaceSerializer(serializers.ModelSerializer):
 class WorkspaceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Workspace
-        fields = ['name', 'description']
+        fields = ['id', 'name', 'description']
+        read_only_fields = ['id']
 
     def create(self, validated_data):
         user = self.context['request'].user
