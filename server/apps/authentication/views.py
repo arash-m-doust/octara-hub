@@ -53,6 +53,17 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
+class StatusView(APIView):
+    def post(self, request):
+        new_status = request.data.get('status')
+        valid = ['online', 'idle', 'dnd', 'offline']
+        if new_status not in valid:
+            return Response({'detail': f'Invalid status. Choose from: {valid}'}, status=400)
+        request.user.profile.status = new_status
+        request.user.profile.save(update_fields=['status'])
+        return Response(UserSerializer(request.user).data)
+
+
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
 
