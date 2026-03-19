@@ -15,6 +15,8 @@ interface MessageState {
   deleteMessage: (channelId: number, messageId: number) => Promise<void>
   addReaction: (channelId: number, messageId: number, emoji: string) => Promise<void>
   removeReaction: (channelId: number, messageId: number, emoji: string) => Promise<void>
+  pinMessage: (channelId: number, messageId: number) => Promise<void>
+  unpinMessage: (channelId: number, messageId: number) => Promise<void>
   setReplyTo: (msg: Message | null) => void
   addMessage: (msg: Message) => void
   clear: () => void
@@ -106,6 +108,14 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
   removeReaction: async (channelId, messageId, emoji) => {
     await messageApi.removeReaction(channelId, messageId, emoji)
+  },
+
+  pinMessage: async (channelId, messageId) => {
+    await messageApi.pin(channelId, messageId)
+  },
+
+  unpinMessage: async (channelId, messageId) => {
+    await messageApi.unpin(channelId, messageId)
   },
 
   setReplyTo: (msg) => set({ replyTo: msg }),

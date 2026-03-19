@@ -5,8 +5,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useTranslation } from 'react-i18next'
 import { fileApi, type Attachment } from '@/api/files'
 import { searchApi } from '@/api/search'
+import { messageApi, type Message } from '@/api/messages'
 import { extractResults } from '@/api/client'
-import type { Message } from '@/api/messages'
+import { Pin as PinIcon } from 'lucide-react'
 import {
   X, Download, Search, FileText, Image, Film, Music,
   FileSpreadsheet, FileCode, Archive, File, Loader2
@@ -71,6 +72,21 @@ export function RightPanel() {
   const [filesLoading, setFilesLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<Message[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [pinnedMessages, setPinnedMessages] = useState<{ id: number; message: Message; created_at: string }[]>([])
+  const [pinnedLoading, setPinnedLoading] = useState(false)
+
+  // Fetch pinned messages
+  useEffect(() => {
+    if (rightPanel !== 'pinned' || !currentChannel) return
+    setPinnedLoading(true)
+    messageApi.pinnedMessages(currentChannel.id)
+      .then((res) => {
+        const items = extractResults(res as unknown as { id: number; message: Message; created_at: string }[])
+        setPinnedMessages(Array.isArray(items) ? items : [])
+      })
+      .catch(() => setPinnedMessages([]))
+      .finally(() => setPinnedLoading(false))
+  }, [rightPanel, currentChannel?.id])
 
   useEffect(() => {
     if (rightPanel !== 'files' || !currentChannel) return
@@ -202,11 +218,34 @@ export function RightPanel() {
 
         {/* Pinned */}
         {rightPanel === 'pinned' && (
-          <div className="text-center py-8">
-            <div className="w-10 h-10 mx-auto rounded-full bg-surface-inset flex items-center justify-center mb-2">
-              <span className="text-muted text-lg">📌</span>
-            </div>
-            <p className="text-sm text-muted">No pinned messages</p>
+          <div>
+            {pinnedLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted">
+                <Loader2 size={18} className="animate-spin" />
+              </div>
+            ) : pinnedMessages.length === 0 ? (
+              <div className="text-center py-8">
+                <PinIcon size={32} className="mx-auto text-muted mb-2" />
+                <p className="text-sm text-muted">No pinned messages</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pinnedMessages.map((pin) => (
+                  <div key={pin.id} className="p-2.5 rounded-skeu bg-surface-inset border border-border-light text-xs">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Avatar
+                        name={pin.message.user.profile?.display_name || pin.message.user.username}
+                        size="sm"
+                      />
+                      <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                        {pin.message.user.profile?.display_name || pin.message.user.username}
+                      </span>
+                    </div>
+                    <p className="text-muted whitespace-pre-wrap">{pin.message.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

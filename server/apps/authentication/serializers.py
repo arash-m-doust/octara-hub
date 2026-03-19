@@ -51,9 +51,9 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
-    display_name = serializers.CharField(source='profile.display_name', required=False)
-    locale = serializers.CharField(source='profile.locale', required=False)
-    theme = serializers.CharField(source='profile.theme', required=False)
+    display_name = serializers.CharField(source='profile.display_name', required=False, allow_blank=True)
+    locale = serializers.CharField(source='profile.locale', required=False, allow_blank=True)
+    theme = serializers.CharField(source='profile.theme', required=False, allow_blank=True)
     status = serializers.ChoiceField(
         source='profile.status',
         choices=['online', 'idle', 'dnd', 'offline'],

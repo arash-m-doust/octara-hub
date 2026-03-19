@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMessageStore } from '@/stores/messageStore'
 import { fileApi } from '@/api/files'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { Paperclip, Send, X, Loader2 } from 'lucide-react'
 
 interface MessageInputProps {
   onSend: (content: string) => void
@@ -62,31 +63,35 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
       {/* Reply indicator */}
       {replyTo && (
         <div className="flex items-center gap-2 mb-1 px-3 py-1.5 bg-accent-soft rounded-t-skeu text-xs">
-          <span className="text-accent">↩ Replying to</span>
-          <span className="font-medium">{replyTo.user.profile?.display_name || replyTo.user.username}</span>
+          <span className="text-accent">Replying to</span>
+          <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{replyTo.user.profile?.display_name || replyTo.user.username}</span>
           <span className="text-muted truncate flex-1">{replyTo.content}</span>
-          <button onClick={() => setReplyTo(null)} className="text-muted hover:text-gray-600">✕</button>
+          <button onClick={() => setReplyTo(null)} className="text-muted hover:text-error transition-colors">
+            <X size={14} />
+          </button>
         </div>
       )}
 
       {error && (
-        <div className="text-xs text-danger mb-1 px-3">{error}</div>
+        <div className="text-xs text-error mb-1 px-3">{error}</div>
       )}
 
       <div className="flex items-end gap-2 bg-surface-raised rounded-skeu-lg border border-border-light shadow-skeu-panel p-2">
         {/* File upload */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu hover:bg-surface-inset text-muted"
+          className="w-8 h-8 flex items-center justify-center rounded-skeu hover:bg-surface-inset text-muted transition-colors"
           disabled={uploading}
+          title="Attach file"
         >
-          {uploading ? '⏳' : '📎'}
+          {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
         </button>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
 
         {/* Text input */}
         <textarea
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-5 max-h-32 min-h-[36px] py-1.5"
+          style={{ color: 'var(--color-text-primary)' }}
           placeholder={placeholder || t('chat.typeMessage')}
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -98,9 +103,10 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
         <button
           onClick={handleSend}
           disabled={!content.trim()}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu bg-accent text-white disabled:opacity-40 hover:bg-accent/90 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-skeu bg-accent text-white disabled:opacity-40 transition-colors"
+          title="Send"
         >
-          ➤
+          <Send size={16} />
         </button>
       </div>
     </div>

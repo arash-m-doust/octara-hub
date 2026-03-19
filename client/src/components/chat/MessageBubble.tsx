@@ -137,7 +137,7 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
 export function MessageBubble({ message }: MessageBubbleProps) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
-  const { setReplyTo, editMessage, deleteMessage, addReaction } = useMessageStore()
+  const { setReplyTo, editMessage, deleteMessage, addReaction, pinMessage } = useMessageStore()
   const { currentChannel } = useWorkspaceStore()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
@@ -161,7 +161,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   const menuItems = [
     { label: t('chat.reply'), icon: '↩', onClick: () => setReplyTo(message) },
-    { label: t('chat.pin'), icon: '📌', onClick: () => {} },
+    { label: t('chat.pin'), icon: '📌', onClick: () => { if (currentChannel) pinMessage(currentChannel.id, message.id) } },
     ...(isOwn || user?.is_superuser
       ? [
           ...(isOwn ? [{ label: t('chat.edit'), icon: '✏', onClick: () => { setEditing(true); setEditContent(message.content) } }] : []),
