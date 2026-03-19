@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { dmApi, type DMThread } from '@/api/dm'
+import { extractResults } from '@/api/client'
 import type { Message } from '@/api/messages'
 
 interface DMState {
@@ -23,8 +24,8 @@ export const useDMStore = create<DMState>((set, get) => ({
   isLoading: false,
 
   fetchThreads: async () => {
-    const threads = await dmApi.threads()
-    set({ threads })
+    const res = await dmApi.threads()
+    set({ threads: extractResults(res) })
   },
 
   setCurrentThread: (thread) => {
@@ -34,8 +35,12 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   fetchMessages: async (threadId) => {
     set({ isLoading: true })
-    const res = await dmApi.messages(threadId)
-    set({ messages: res.results.reverse(), isLoading: false })
+    try {
+      const res = await dmApi.messages(threadId)
+      set({ messages: res.results.reverse(), isLoading: false })
+    } catch {
+      set({ isLoading: false })
+    }
   },
 
   sendMessage: async (threadId, content) => {

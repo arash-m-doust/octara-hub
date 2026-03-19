@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { AppShell } from '@/components/layout/AppShell'
@@ -10,8 +10,10 @@ type AuthView = 'login' | 'register' | 'forgot'
 
 export default function App() {
   const { i18n } = useTranslation()
-  const { isAuthenticated, isLoading, fetchMe } = useAuthStore()
+  const { isAuthenticated, user, fetchMe, logout } = useAuthStore()
   const [authView, setAuthView] = useState<AuthView>('login')
+  const [initializing, setInitializing] = useState(!!localStorage.getItem('access_token'))
+  const initRef = useRef(false)
 
   // Set document direction based on language
   useEffect(() => {
@@ -20,14 +22,20 @@ export default function App() {
     document.documentElement.lang = i18n.language
   }, [i18n.language])
 
-  // Try to restore session on mount
+  // Try to restore session on mount (runs only once)
   useEffect(() => {
+    if (initRef.current) return
+    initRef.current = true
+
     if (localStorage.getItem('access_token')) {
-      fetchMe()
+      fetchMe().finally(() => setInitializing(false))
+    } else {
+      setInitializing(false)
     }
   }, [fetchMe])
 
-  if (isLoading) {
+  // Show loading only during initial session restore
+  if (initializing) {
     return (
       <div className="flex items-center justify-center h-screen bg-surface">
         <div className="text-center space-y-3">

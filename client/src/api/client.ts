@@ -6,6 +6,14 @@ interface RequestOptions {
   headers?: Record<string, string>
 }
 
+// Helper to extract results from paginated or direct responses
+export function extractResults<T>(data: T | { results: T; count?: number }): T {
+  if (data && typeof data === 'object' && 'results' in data) {
+    return (data as { results: T }).results
+  }
+  return data
+}
+
 async function refreshToken(): Promise<string | null> {
   const refresh = localStorage.getItem('refresh_token')
   if (!refresh) return null

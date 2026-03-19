@@ -1,27 +1,22 @@
 import { useEffect } from 'react'
-import { useAuthStore } from '@/stores/authStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import { realtime } from '@/realtime/connection'
+import { useAuthStore } from '@/stores/authStore'
 import { ServerRail } from './ServerRail'
 import { ChannelSidebar } from './ChannelSidebar'
 import { MainPanel } from './MainPanel'
 import { RightPanel } from './RightPanel'
 
 export function AppShell() {
-  const { user, fetchMe } = useAuthStore()
-  const { fetchWorkspaces, currentWorkspace } = useWorkspaceStore()
+  const { user } = useAuthStore()
+  const { fetchWorkspaces } = useWorkspaceStore()
   const { rightPanel } = useUIStore()
 
-  // useEffect(() => {
-  //   fetchMe()
-  //   fetchWorkspaces()
-  // }, [fetchMe, fetchWorkspaces])
-
-useEffect(() => {
-    fetchMe()
+  // Fetch workspaces on mount (NOT fetchMe - that is handled by App.tsx)
+  useEffect(() => {
     fetchWorkspaces()
-  }, [])
+  }, [fetchWorkspaces])
 
   useEffect(() => {
     if (user) {

@@ -20,6 +20,15 @@ interface MessageState {
   clear: () => void
 }
 
+function extractCursor(url: string | null): string | null {
+  if (!url) return null
+  try {
+    return new URL(url, location.origin).searchParams.get('cursor')
+  } catch {
+    return null
+  }
+}
+
 export const useMessageStore = create<MessageState>((set, get) => ({
   messages: [],
   isLoading: false,
@@ -29,26 +38,34 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
   fetchMessages: async (channelId) => {
     set({ isLoading: true, messages: [], hasMore: false, nextCursor: null })
-    const res = await messageApi.list(channelId)
-    set({
-      messages: res.results.reverse(),
-      isLoading: false,
-      hasMore: !!res.next,
-      nextCursor: res.next ? new URL(res.next, location.origin).searchParams.get('cursor') : null,
-    })
+    try {
+      const res = await messageApi.list(channelId)
+      set({
+        messages: res.results.reverse(),
+        isLoading: false,
+        hasMore: !!res.next,
+        nextCursor: extractCursor(res.next),
+      })
+    } catch {
+      set({ isLoading: false })
+    }
   },
 
   loadMore: async (channelId) => {
     const { nextCursor, isLoading } = get()
     if (!nextCursor || isLoading) return
     set({ isLoading: true })
-    const res = await messageApi.list(channelId, nextCursor)
-    set((s) => ({
-      messages: [...res.results.reverse(), ...s.messages],
-      isLoading: false,
-      hasMore: !!res.next,
-      nextCursor: res.next ? new URL(res.next, location.origin).searchParams.get('cursor') : null,
-    }))
+    try {
+      const res = await messageApi.list(channelId, nextCursor)
+      set((s) => ({
+        messages: [...res.results.reverse(), ...s.messages],
+        isLoading: false,
+        hasMore: !!res.next,
+        nextCursor: extractCursor(res.next),
+      }))
+    } catch {
+      set({ isLoading: false })
+    }
   },
 
   sendMessage: async (channelId, content, replyTo) => {

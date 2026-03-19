@@ -45,7 +45,8 @@ class DMThreadCreateView(APIView):
         thread = DMThread.objects.create(is_group=is_group, name=name)
         DMParticipant.objects.create(thread=thread, user=request.user)
         for uid in user_ids:
-            DMParticipant.objects.create(thread=thread, user_id=uid)
+            if uid != request.user.id:
+                DMParticipant.objects.create(thread=thread, user_id=uid)
 
         return Response(
             DMThreadSerializer(thread, context={'request': request}).data,

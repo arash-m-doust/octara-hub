@@ -4,7 +4,6 @@ import { authApi, type User } from '@/api/auth'
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
-  isLoading: boolean
   login: (username: string, password: string) => Promise<void>
   register: (data: { username: string; email: string; password: string; password_confirm: string; display_name?: string }) => Promise<void>
   logout: () => void
@@ -14,8 +13,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isAuthenticated: !!localStorage.getItem('access_token'),
-  isLoading: false,
+  isAuthenticated: false,
 
   login: async (username, password) => {
     const { access, refresh } = await authApi.login({ username, password })
@@ -36,14 +34,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchMe: async () => {
-    set({ isLoading: true })
     try {
       const user = await authApi.me()
-      set({ user, isAuthenticated: true, isLoading: false })
+      set({ user, isAuthenticated: true })
     } catch {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
-      set({ user: null, isAuthenticated: false, isLoading: false })
+      set({ user: null, isAuthenticated: false })
     }
   },
 

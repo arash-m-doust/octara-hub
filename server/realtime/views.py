@@ -3,13 +3,39 @@ import time
 from django.http import StreamingHttpResponse
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import TokenError
+from django.contrib.auth.models import User
 
 from apps.workspaces.models import WorkspaceMember, ChannelMember
 from apps.dm.models import DMParticipant
 from .sse import subscribe, unsubscribe
 
 
+class SSETokenAuthentication(JWTAuthentication):
+    """Custom auth that reads JWT from query param for EventSource (which can't send headers)."""
+
+    def authenticate(self, request):
+        # First try the standard header-based auth
+        result = super().authenticate(request)
+        if result:
+            return result
+
+        # Fall back to query parameter
+        token = request.query_params.get('token')
+        if not token:
+            return None
+        try:
+            validated = AccessToken(token)
+            user = User.objects.get(id=validated['user_id'])
+            return (user, validated)
+        except (TokenError, User.DoesNotExist):
+            return None
+
+
 class SSEEventStreamView(APIView):
+    authentication_classes = [SSETokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -59,7 +85,7 @@ class SSEEventStreamView(APIView):
                     if not found:
                         # Send heartbeat every 15 seconds
                         yield f": heartbeat {int(time.time())}\n\n"
-                        time.sleep(1)
+                        time.sleep(3)
             finally:
                 for ch, q in queues.items():
                     unsubscribe(ch, q)

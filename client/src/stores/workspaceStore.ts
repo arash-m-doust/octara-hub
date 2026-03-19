@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { workspaceApi, type Workspace, type Category, type Channel, type WorkspaceMember } from '@/api/workspaces'
+import { extractResults } from '@/api/client'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -28,27 +29,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   members: [],
   currentChannel: null,
 
-  // --- Fetches (Gemini Fixed for Pagination Support) ---
   fetchWorkspaces: async () => {
     const res = await workspaceApi.list()
-    set({ workspaces: res.results || res })
+    set({ workspaces: extractResults(res) })
   },
 
   fetchCategories: async (wid) => {
     const res = await workspaceApi.categories(wid)
-    set({ categories: res.results || res })
+    set({ categories: extractResults(res) })
   },
 
   fetchChannels: async (wid) => {
     const res = await workspaceApi.channels(wid)
-    set({ channels: res.results || res })
+    set({ channels: extractResults(res) })
   },
 
   fetchMembers: async (wid) => {
     const res = await workspaceApi.members(wid)
-    set({ members: res.results || res })
+    set({ members: extractResults(res) })
   },
-  // --------------------------------------------------
 
   setCurrentWorkspace: (ws) => {
     set({ currentWorkspace: ws, currentChannel: null, categories: [], channels: [], members: [] })
