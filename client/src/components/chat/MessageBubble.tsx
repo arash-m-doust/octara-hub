@@ -7,6 +7,11 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import type { Message, MessageAttachment } from '@/api/messages'
+import {
+  Download, File, FileText, Image as ImageIcon, Film,
+  Music, FileSpreadsheet, FileCode, Archive,
+  Reply, Pin, Pencil, Trash2, MoreHorizontal
+} from 'lucide-react'
 
 interface MessageBubbleProps {
   message: Message
@@ -16,6 +21,20 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function getFileIconInfo(mimeType: string) {
+  if (mimeType.startsWith('image/')) return { icon: ImageIcon, color: 'text-accent', bg: 'bg-accent/10' }
+  if (mimeType.startsWith('video/')) return { icon: Film, color: 'text-lavender', bg: 'bg-lavender/10' }
+  if (mimeType.startsWith('audio/')) return { icon: Music, color: 'text-warning', bg: 'bg-warning/10' }
+  if (mimeType.includes('pdf')) return { icon: FileText, color: 'text-error', bg: 'bg-error/10' }
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
+    return { icon: FileSpreadsheet, color: 'text-success', bg: 'bg-success/10' }
+  if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('rar'))
+    return { icon: Archive, color: 'text-warning', bg: 'bg-warning/10' }
+  if (mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('javascript'))
+    return { icon: FileCode, color: 'text-accent', bg: 'bg-accent/10' }
+  return { icon: File, color: 'text-muted', bg: 'bg-surface-inset' }
 }
 
 function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
@@ -51,14 +70,11 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
           </div>
         )}
         <div className="flex items-center gap-2 mt-1">
+          <ImageIcon size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
           <span className="text-[10px] text-muted">({formatFileSize(attachment.file_size)})</span>
-          <a
-            href={downloadUrl}
-            download={attachment.original_filename}
-            className="text-[10px] text-accent hover:underline"
-          >
-            Download
+          <a href={downloadUrl} download={attachment.original_filename} className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+            <Download size={10} /> Download
           </a>
         </div>
       </div>
@@ -68,14 +84,13 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
   if (isVideo) {
     return (
       <div className="mt-1.5">
-        <video
-          src={downloadUrl}
-          controls
-          className="max-w-xs max-h-48 rounded-skeu border border-border-light"
-        />
+        <video src={downloadUrl} controls className="max-w-xs max-h-48 rounded-skeu border border-border-light" />
         <div className="flex items-center gap-2 mt-1">
+          <Film size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
-          <a href={downloadUrl} download className="text-[10px] text-accent hover:underline">Download</a>
+          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+            <Download size={10} /> Download
+          </a>
         </div>
       </div>
     )
@@ -86,27 +101,34 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
       <div className="mt-1.5">
         <audio src={downloadUrl} controls className="max-w-xs" />
         <div className="flex items-center gap-2 mt-1">
+          <Music size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
-          <a href={downloadUrl} download className="text-[10px] text-accent hover:underline">Download</a>
+          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+            <Download size={10} /> Download
+          </a>
         </div>
       </div>
     )
   }
 
-  // Generic file
+  // Generic file card with proper icon
+  const { icon: FileIcon, color, bg } = getFileIconInfo(attachment.mime_type)
   return (
-    <div className="mt-1.5 flex items-center gap-2 p-2 rounded-skeu bg-surface-inset border border-border-light max-w-xs">
-      <span className="text-lg">📄</span>
+    <div className="mt-1.5 flex items-center gap-2.5 p-2.5 rounded-skeu bg-surface-inset border border-border-light max-w-xs">
+      <div className={`w-9 h-9 rounded-skeu ${bg} flex items-center justify-center flex-shrink-0`}>
+        <FileIcon size={18} className={color} />
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{attachment.original_filename}</div>
+        <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{attachment.original_filename}</div>
         <div className="text-[10px] text-muted">{formatFileSize(attachment.file_size)}</div>
       </div>
       <a
         href={downloadUrl}
         download={attachment.original_filename}
-        className="text-xs text-accent hover:underline flex-shrink-0"
+        className="p-1 rounded text-accent hover:bg-accent/10 transition-colors flex-shrink-0"
+        title="Download"
       >
-        ⬇
+        <Download size={15} />
       </a>
     </div>
   )
@@ -121,8 +143,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const [editContent, setEditContent] = useState(message.content)
   const isOwn = user?.id === message.user.id
   const hasAttachments = message.attachments && message.attachments.length > 0
-  // If message content is just the auto-generated "📎 filename" and there are attachments, hide the text
-  const isAutoContent = hasAttachments && message.content.startsWith('📎 ')
+  const isAutoContent = hasAttachments && message.content.startsWith('\u{1F4CE} ')
 
   const handleEdit = async () => {
     if (!currentChannel || editContent.trim() === message.content) {
@@ -160,7 +181,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-gray-800">
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {message.user.profile?.display_name || message.user.username}
           </span>
           <span className="text-[10px] text-muted">
@@ -198,9 +219,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </div>
         ) : (
           <>
-            {/* Only show text content if it's not auto-generated file text */}
             {!isAutoContent && (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words mt-0.5">
+              <p className="text-sm whitespace-pre-wrap break-words mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                 {message.content}
               </p>
             )}
@@ -220,11 +240,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 key={r.emoji}
                 onClick={() => {
                   if (!currentChannel) return
-                  if (r.reacted) {
-                    // Would need removeReaction
-                  } else {
-                    addReaction(currentChannel.id, message.id, r.emoji)
-                  }
+                  if (!r.reacted) addReaction(currentChannel.id, message.id, r.emoji)
                 }}
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${
                   r.reacted
@@ -240,7 +256,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
       </div>
 
-      {/* Actions (visible on hover) */}
+      {/* Hover actions */}
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-start gap-0.5 pt-1">
         {quickReactions.slice(0, 3).map((emoji) => (
           <button
@@ -253,8 +269,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         ))}
         <DropdownMenu
           trigger={
-            <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-inset text-xs text-muted">
-              ⋯
+            <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-inset text-muted">
+              <MoreHorizontal size={14} />
             </button>
           }
           items={menuItems}

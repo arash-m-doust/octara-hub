@@ -54,10 +54,15 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(source='profile.display_name', required=False)
     locale = serializers.CharField(source='profile.locale', required=False)
     theme = serializers.CharField(source='profile.theme', required=False)
+    status = serializers.ChoiceField(
+        source='profile.status',
+        choices=['online', 'idle', 'dnd', 'offline'],
+        required=False,
+    )
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'display_name', 'locale', 'theme']
+        fields = ['first_name', 'last_name', 'email', 'display_name', 'locale', 'theme', 'status']
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', {})

@@ -6,23 +6,24 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#F5F3F0',
-          raised: '#FAFAF8',
-          inset: '#EDEAE6',
+          DEFAULT: 'var(--color-surface)',
+          raised: 'var(--color-surface-raised)',
+          inset: 'var(--color-surface-inset)',
         },
         border: {
-          DEFAULT: '#DDD9D3',
-          light: '#E8E5E0',
+          DEFAULT: 'var(--color-border)',
+          light: 'var(--color-border-light)',
         },
         accent: {
-          DEFAULT: '#5B7FBF',
-          soft: '#E8EDF5',
+          DEFAULT: 'var(--color-accent)',
+          soft: 'var(--color-accent-soft)',
         },
         lavender: '#9B8FBF',
         success: '#7BA87B',
         error: '#BF6B6B',
         warning: '#BFA66B',
-        muted: '#9B9B9B',
+        danger: '#BF6B6B',
+        muted: 'var(--color-text-muted)',
       },
       fontFamily: {
         sans: ['Inter', 'Vazirmatn', 'system-ui', 'sans-serif'],

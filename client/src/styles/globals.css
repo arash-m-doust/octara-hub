@@ -14,14 +14,37 @@
     --color-text-muted: #9B9B9B;
     --color-accent: #5B7FBF;
     --color-accent-soft: #E8EDF5;
+    --color-bg-white: #ffffff;
+    --color-bg-black-20: rgba(0, 0, 0, 0.2);
+  }
+
+  [data-theme='dark'] {
+    --color-surface: #1a1b1e;
+    --color-surface-raised: #232428;
+    --color-surface-inset: #141517;
+    --color-border: #2e3035;
+    --color-border-light: #383a40;
+    --color-text-primary: #e4e4e7;
+    --color-text-secondary: #a1a1aa;
+    --color-text-muted: #71717a;
+    --color-accent: #7B9FDF;
+    --color-accent-soft: #1e2a3e;
+    --color-bg-white: #2a2b30;
+    --color-bg-black-20: rgba(0, 0, 0, 0.5);
   }
 
   html {
     font-family: 'Inter', 'Vazirmatn', system-ui, sans-serif;
+    color: var(--color-text-primary);
   }
 
   html[dir='rtl'] {
     font-family: 'Vazirmatn', 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
   }
 
   * {
@@ -49,7 +72,8 @@
   }
 
   .skeu-panel-raised {
-    @apply bg-white rounded-skeu-lg shadow-skeu-panel border border-border-light;
+    @apply rounded-skeu-lg shadow-skeu-panel border border-border-light;
+    background-color: var(--color-bg-white);
   }
 
   .skeu-inset {
@@ -60,16 +84,32 @@
     @apply px-4 py-2 rounded-skeu font-medium text-sm transition-all duration-150
            bg-surface-raised border border-border shadow-skeu-embossed
            hover:shadow-skeu-raised active:shadow-skeu-inset active:bg-surface-inset;
+    color: var(--color-text-primary);
   }
 
   .skeu-button-primary {
-    @apply skeu-button bg-accent text-white border-accent/30
-           hover:bg-accent/90 active:bg-accent/80;
+    @apply skeu-button text-white;
+    background-color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  .skeu-button-primary:hover {
+    background-color: color-mix(in srgb, var(--color-accent) 90%, black);
+  }
+
+  .skeu-button-primary:active {
+    background-color: color-mix(in srgb, var(--color-accent) 80%, black);
   }
 
   .skeu-input {
     @apply w-full px-3 py-2 rounded-skeu bg-surface-inset border border-border
-           shadow-skeu-inset focus:outline-none focus:ring-2 focus:ring-accent/30
-           focus:border-accent/50 transition-all duration-150 text-sm;
+           shadow-skeu-inset transition-all duration-150 text-sm;
+    color: var(--color-text-primary);
+  }
+
+  .skeu-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
 }
