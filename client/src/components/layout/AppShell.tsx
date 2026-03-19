@@ -8,15 +8,13 @@ import { ChannelSidebar } from './ChannelSidebar'
 import { MainPanel } from './MainPanel'
 import { RightPanel } from './RightPanel'
 import { AdminPanel } from '@/components/admin/AdminPanel'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
-import { Shield, Settings, LogOut } from 'lucide-react'
+import { Shield } from 'lucide-react'
 
 export function AppShell() {
   const { user, logout } = useAuthStore()
   const { fetchWorkspaces } = useWorkspaceStore()
   const { rightPanel } = useUIStore()
   const [showAdmin, setShowAdmin] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => { fetchWorkspaces() }, [fetchWorkspaces])
   useEffect(() => {
@@ -37,9 +35,9 @@ export function AppShell() {
       <MainPanel />
       {rightPanel && <RightPanel />}
 
-      {/* Top-right controls */}
-      <div className="absolute top-2 right-2 flex items-center gap-1 z-50">
-        {user?.is_superuser && (
+      {/* Admin button (superuser only) */}
+      {user?.is_superuser && (
+        <div className="absolute top-2 right-2 z-50">
           <button
             onClick={() => setShowAdmin(true)}
             className="w-8 h-8 flex items-center justify-center rounded-skeu bg-surface-raised shadow-skeu-embossed hover:shadow-skeu-raised transition-all"
@@ -47,27 +45,12 @@ export function AppShell() {
           >
             <Shield size={15} className="text-accent" />
           </button>
-        )}
-        <button
-          onClick={() => setShowSettings(true)}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu bg-surface-raised shadow-skeu-embossed hover:shadow-skeu-raised transition-all"
-          title="Settings"
-        >
-          <Settings size={15} className="text-muted" />
-        </button>
-        <button
-          onClick={logout}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu bg-surface-raised shadow-skeu-embossed hover:shadow-skeu-raised transition-all"
-          title="Logout"
-        >
-          <LogOut size={15} className="text-error" />
-        </button>
-      </div>
+        </div>
+      )}
 
       {user?.is_superuser && (
         <AdminPanel isOpen={showAdmin} onClose={() => setShowAdmin(false)} />
       )}
-      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
 }

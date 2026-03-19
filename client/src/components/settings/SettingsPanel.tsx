@@ -57,23 +57,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setSaving(true)
     setMessage('')
     try {
-      await updateProfile({ display_name: displayName, theme, locale })
-      // Update status
-      const token = localStorage.getItem('access_token')
-      await fetch('/api/auth/status/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ status }),
-      }).catch(() => {})
+      // Single API call with all profile fields including status
+      await updateProfile({ display_name: displayName, theme, locale, status })
       await fetchMe()
       setMessage('Settings saved!')
       if (locale !== i18n.language) {
         i18n.changeLanguage(locale)
       }
-    } catch {
+    } catch (err) {
+      console.error('Settings save error:', err)
       setMessage('Failed to save settings')
     } finally {
       setSaving(false)

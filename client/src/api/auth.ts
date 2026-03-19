@@ -27,7 +27,7 @@ export const authApi = {
 
   me: () => api<User>('/auth/me/'),
 
-  updateProfile: (data: Partial<{ display_name: string; locale: string; theme: string; first_name: string; last_name: string }>) =>
+  updateProfile: (data: Partial<{ display_name: string; locale: string; theme: string; status: string; first_name: string; last_name: string }>) =>
     api<User>('/auth/me/', { method: 'PATCH', body: data }),
 
   forgotPassword: (email: string) =>

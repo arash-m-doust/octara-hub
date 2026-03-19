@@ -8,7 +8,7 @@ interface AuthState {
   register: (data: { username: string; email: string; password: string; password_confirm: string; display_name?: string }) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
-  updateProfile: (data: Partial<{ display_name: string; locale: string; theme: string }>) => Promise<void>
+  updateProfile: (data: Partial<{ display_name: string; locale: string; theme: string; status: string }>) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({

@@ -9,15 +9,17 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuthStore } from '@/stores/authStore'
-import { Hash, Lock, FolderPlus, Plus, ChevronDown, Settings } from 'lucide-react'
+import { Hash, Lock, FolderPlus, Plus, ChevronDown, Settings, LogOut } from 'lucide-react'
+import { SettingsPanel } from '@/components/settings/SettingsPanel'
 
 export function ChannelSidebar() {
   const { t } = useTranslation()
   const { currentWorkspace, categories, channels, currentChannel, setCurrentChannel, createChannel, createCategory } = useWorkspaceStore()
   const { view } = useUIStore()
   const { threads, currentThread, setCurrentThread } = useDMStore()
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const [showCreateChannel, setShowCreateChannel] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showCreateCategory, setShowCreateCategory] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -59,6 +61,23 @@ export function ChannelSidebar() {
             )
           })}
         </div>
+        {/* User Bar (DM view) */}
+        <div className="p-2 border-t border-border-light">
+          <div className="flex items-center gap-2 px-1">
+            <Avatar name={user?.profile?.display_name || user?.username || '?'} size="sm" status={user?.profile?.status || 'online'} />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{user?.profile?.display_name || user?.username}</div>
+              <div className="text-[10px] text-muted capitalize">{user?.profile?.status || 'online'}</div>
+            </div>
+            <button onClick={() => setShowSettings(true)} className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-accent transition-colors" title="Settings">
+              <Settings size={13} />
+            </button>
+            <button onClick={logout} className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-error transition-colors" title="Logout">
+              <LogOut size={13} />
+            </button>
+          </div>
+        </div>
+        <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
       </div>
     )
   }
@@ -193,13 +212,24 @@ export function ChannelSidebar() {
             <div className="text-[10px] text-muted capitalize">{user?.profile?.status || 'online'}</div>
           </div>
           <button
+            onClick={() => setShowSettings(true)}
             className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-accent transition-colors"
-            title="User Settings"
+            title="Settings"
           >
             <Settings size={13} />
           </button>
+          <button
+            onClick={logout}
+            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-error transition-colors"
+            title="Logout"
+          >
+            <LogOut size={13} />
+          </button>
         </div>
       </div>
+
+      {/* Settings Panel */}
+      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Create Channel Modal */}
       <Modal isOpen={showCreateChannel} onClose={() => setShowCreateChannel(false)} title={t('channel.create')}>
