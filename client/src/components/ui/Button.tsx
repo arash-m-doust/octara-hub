@@ -10,12 +10,12 @@ export function Button({ variant = 'default', size = 'md', className, children, 
   return (
     <button
       className={clsx(
-        'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-skeu',
+        'inline-flex items-center justify-center font-medium transition-all duration-100 rounded-ind',
         {
-          'skeu-button': variant === 'default',
-          'skeu-button-primary': variant === 'primary',
-          'bg-transparent hover:bg-surface-inset px-3 py-1.5 text-sm': variant === 'ghost',
-          'skeu-button bg-error/10 text-error border-error/20 hover:bg-error/20': variant === 'danger',
+          'ind-button': variant === 'default',
+          'ind-button-primary': variant === 'primary',
+          'bg-transparent hover:bg-surface-inset px-3 py-1.5 text-sm cursor-pointer': variant === 'ghost',
+          'ind-button text-error': variant === 'danger',
         },
         {
           'px-2.5 py-1 text-xs': size === 'sm',
@@ -24,6 +24,10 @@ export function Button({ variant = 'default', size = 'md', className, children, 
         },
         className,
       )}
+      style={variant === 'danger' ? {
+        background: 'linear-gradient(180deg, rgba(255,82,82,0.15) 0%, rgba(255,82,82,0.08) 100%)',
+        borderColor: 'rgba(255,82,82,0.3)',
+      } : undefined}
       {...props}
     >
       {children}

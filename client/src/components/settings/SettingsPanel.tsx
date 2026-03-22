@@ -18,10 +18,10 @@ interface SettingsPanelProps {
 type Tab = 'profile' | 'appearance'
 
 const STATUS_OPTIONS = [
-  { value: 'online', label: 'Online', icon: Circle, color: 'text-success', fill: 'fill-success' },
-  { value: 'idle', label: 'Idle', icon: Clock, color: 'text-warning', fill: '' },
-  { value: 'dnd', label: 'Do Not Disturb', icon: MinusCircle, color: 'text-error', fill: '' },
-  { value: 'offline', label: 'Invisible', icon: EyeOff, color: 'text-muted', fill: '' },
+  { value: 'online', label: 'Online', icon: Circle, color: 'var(--color-led-online)' },
+  { value: 'idle', label: 'Idle', icon: Clock, color: 'var(--color-led-idle)' },
+  { value: 'dnd', label: 'Do Not Disturb', icon: MinusCircle, color: 'var(--color-led-dnd)' },
+  { value: 'offline', label: 'Invisible', icon: EyeOff, color: 'var(--color-led-off)' },
 ] as const
 
 const TAB_CONFIG = [
@@ -57,7 +57,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setSaving(true)
     setMessage('')
     try {
-      // Single API call with all profile fields including status
       await updateProfile({ display_name: displayName, theme, locale, status })
       await fetchMe()
       setMessage('Settings saved!')
@@ -76,20 +75,24 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     <Modal isOpen={isOpen} onClose={onClose} title="Settings" size="lg">
       <div className="flex gap-4 min-h-[380px]">
         {/* Sidebar nav */}
-        <div className="w-44 flex-shrink-0 border-e border-border-light pe-4 space-y-1">
+        <div className="w-44 flex-shrink-0 pe-4 space-y-1" style={{ borderInlineEnd: '2px solid transparent', borderImage: 'linear-gradient(180deg, var(--color-border-groove), var(--color-metal-highlight), var(--color-border-groove)) 1' }}>
           {TAB_CONFIG.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-skeu text-sm transition-all text-start ${
-                tab === key
-                  ? 'bg-accent text-white shadow-skeu-raised'
-                  : 'hover:bg-surface-inset'
-              }`}
-              style={tab !== key ? { color: 'var(--color-text-secondary)' } : {}}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-ind text-sm transition-all text-start"
+              style={{
+                background: tab === key
+                  ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                  : 'transparent',
+                border: tab === key ? '1px solid var(--color-accent)' : '1px solid transparent',
+                boxShadow: tab === key ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 6px var(--color-accent-glow)' : 'none',
+                color: tab === key ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                fontWeight: tab === key ? 600 : 400,
+              }}
             >
               <Icon size={16} />
-              <span className="font-medium">{label}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
@@ -106,9 +109,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 placeholder="Your display name"
               />
 
-              {/* Status selector */}
+              {/* Status selector with LED indicators */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>Status</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>Status</label>
                 <div className="grid grid-cols-2 gap-2">
                   {STATUS_OPTIONS.map((opt) => {
                     const Icon = opt.icon
@@ -117,15 +120,27 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       <button
                         key={opt.value}
                         onClick={() => setStatus(opt.value)}
-                        className={`flex items-center gap-2.5 p-2.5 rounded-skeu border text-sm transition-all text-start ${
-                          isSelected
-                            ? 'border-accent bg-accent-soft shadow-skeu-raised'
-                            : 'border-border-light hover:bg-surface-inset'
-                        }`}
+                        className="flex items-center gap-2.5 p-2.5 rounded-ind text-sm transition-all text-start"
+                        style={{
+                          background: isSelected
+                            ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                            : 'var(--color-surface-inset)',
+                          border: `1px solid ${isSelected ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                          boxShadow: isSelected
+                            ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 6px var(--color-accent-glow)'
+                            : 'inset 0 1px 3px var(--color-metal-shadow)',
+                        }}
                       >
-                        <Icon size={16} className={opt.color} />
+                        {/* LED dot */}
+                        <span
+                          className="ind-led"
+                          style={{
+                            backgroundColor: opt.color,
+                            boxShadow: opt.value !== 'offline' ? `0 0 4px ${opt.color}, 0 0 8px ${opt.color}` : 'none',
+                          }}
+                        />
                         <span style={{ color: 'var(--color-text-primary)' }}>{opt.label}</span>
-                        {isSelected && <Check size={14} className="ml-auto text-accent" />}
+                        {isSelected && <Check size={14} className="ml-auto" style={{ color: 'var(--color-accent)' }} />}
                       </button>
                     )
                   })}
@@ -134,12 +149,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
               {/* Language */}
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
                   <Globe size={14} className="text-muted" />
                   Language
                 </label>
                 <select
-                  className="skeu-input"
+                  className="ind-input"
                   value={locale}
                   onChange={(e) => setLocale(e.target.value)}
                 >
@@ -154,58 +169,66 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           {tab === 'appearance' && (
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>Theme</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>Theme</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Light theme card */}
+                  {/* Light theme — Brushed Aluminum */}
                   <button
                     onClick={() => setTheme('light')}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-skeu-lg border transition-all ${
-                      theme === 'light'
-                        ? 'border-accent shadow-skeu-raised ring-2 ring-accent/20'
-                        : 'border-border-light hover:bg-surface-inset'
-                    }`}
+                    className="flex flex-col items-center gap-3 p-4 rounded-ind-lg transition-all relative"
+                    style={{
+                      background: theme === 'light'
+                        ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                        : 'var(--color-surface-inset)',
+                      border: `1px solid ${theme === 'light' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                      boxShadow: theme === 'light'
+                        ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 8px var(--color-accent-glow)'
+                        : 'inset 0 1px 3px var(--color-metal-shadow)',
+                    }}
                   >
-                    <div className="w-full aspect-[4/3] rounded-skeu bg-[#F5F3F0] border border-[#E8E5E0] p-2 relative overflow-hidden">
-                      <div className="w-full h-2 rounded bg-[#FAFAF8] border border-[#E8E5E0] mb-1.5" />
+                    <div className="w-full aspect-[4/3] rounded-ind bg-[#c8c8cc] border border-[#a0a0a8] p-2 overflow-hidden">
+                      <div className="w-full h-2 rounded-sm bg-[#d6d6da] border border-[#b8b8bf] mb-1.5" />
                       <div className="flex gap-1.5 h-full">
-                        <div className="w-1/4 rounded bg-[#FAFAF8] border border-[#E8E5E0]" />
-                        <div className="flex-1 rounded bg-white border border-[#E8E5E0] p-1.5">
-                          <div className="w-3/4 h-1.5 rounded bg-[#DDD9D3] mb-1" />
-                          <div className="w-1/2 h-1.5 rounded bg-[#E8E5E0]" />
+                        <div className="w-1/4 rounded-sm bg-[#bfc0c5] border border-[#a0a0a8]" />
+                        <div className="flex-1 rounded-sm bg-[#d2d2d6] border border-[#b8b8bf] p-1.5">
+                          <div className="w-3/4 h-1.5 rounded-sm bg-[#a0a0a8] mb-1" />
+                          <div className="w-1/2 h-1.5 rounded-sm bg-[#b8b8bf]" />
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Sun size={16} className={theme === 'light' ? 'text-accent' : 'text-muted'} />
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Light</span>
+                      <Sun size={16} style={{ color: theme === 'light' ? 'var(--color-accent)' : 'var(--color-text-muted)' }} />
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Aluminum</span>
                     </div>
-                    {theme === 'light' && <Check size={14} className="absolute top-2 right-2 text-accent" />}
                   </button>
 
-                  {/* Dark theme card */}
+                  {/* Dark theme — Gunmetal Steel */}
                   <button
                     onClick={() => setTheme('dark')}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-skeu-lg border transition-all ${
-                      theme === 'dark'
-                        ? 'border-accent shadow-skeu-raised ring-2 ring-accent/20'
-                        : 'border-border-light hover:bg-surface-inset'
-                    }`}
+                    className="flex flex-col items-center gap-3 p-4 rounded-ind-lg transition-all relative"
+                    style={{
+                      background: theme === 'dark'
+                        ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                        : 'var(--color-surface-inset)',
+                      border: `1px solid ${theme === 'dark' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                      boxShadow: theme === 'dark'
+                        ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 8px var(--color-accent-glow)'
+                        : 'inset 0 1px 3px var(--color-metal-shadow)',
+                    }}
                   >
-                    <div className="w-full aspect-[4/3] rounded-skeu bg-[#1a1b1e] border border-[#383a40] p-2 relative overflow-hidden">
-                      <div className="w-full h-2 rounded bg-[#232428] border border-[#383a40] mb-1.5" />
+                    <div className="w-full aspect-[4/3] rounded-ind bg-[#2a2a30] border border-[#404048] p-2 overflow-hidden">
+                      <div className="w-full h-2 rounded-sm bg-[#353540] border border-[#48484f] mb-1.5" />
                       <div className="flex gap-1.5 h-full">
-                        <div className="w-1/4 rounded bg-[#232428] border border-[#383a40]" />
-                        <div className="flex-1 rounded bg-[#2a2b30] border border-[#383a40] p-1.5">
-                          <div className="w-3/4 h-1.5 rounded bg-[#71717a] mb-1" />
-                          <div className="w-1/2 h-1.5 rounded bg-[#383a40]" />
+                        <div className="w-1/4 rounded-sm bg-[#30303a] border border-[#404048]" />
+                        <div className="flex-1 rounded-sm bg-[#2e2e34] border border-[#404048] p-1.5">
+                          <div className="w-3/4 h-1.5 rounded-sm bg-[#6a6a74] mb-1" />
+                          <div className="w-1/2 h-1.5 rounded-sm bg-[#48484f]" />
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Moon size={16} className={theme === 'dark' ? 'text-accent' : 'text-muted'} />
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Dark</span>
+                      <Moon size={16} style={{ color: theme === 'dark' ? 'var(--color-accent)' : 'var(--color-text-muted)' }} />
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Gunmetal</span>
                     </div>
-                    {theme === 'dark' && <Check size={14} className="absolute top-2 right-2 text-accent" />}
                   </button>
                 </div>
               </div>
@@ -213,15 +236,20 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           )}
 
           {message && (
-            <div className={`flex items-center gap-2 text-xs mt-3 p-2 rounded-skeu ${
-              message.includes('Failed') ? 'text-error bg-error/10' : 'text-success bg-success/10'
-            }`}>
+            <div
+              className="flex items-center gap-2 text-xs mt-3 p-2 rounded-ind"
+              style={{
+                background: message.includes('Failed') ? 'rgba(255,82,82,0.1)' : 'rgba(0,230,118,0.1)',
+                color: message.includes('Failed') ? '#FF5252' : 'var(--color-led-online)',
+                border: `1px solid ${message.includes('Failed') ? 'rgba(255,82,82,0.3)' : 'rgba(0,230,118,0.3)'}`,
+              }}
+            >
               <Check size={14} />
               {message}
             </div>
           )}
 
-          <div className="flex justify-end gap-2 mt-5 pt-3 border-t border-border-light">
+          <div className="flex justify-end gap-2 mt-5 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="primary" onClick={handleSave} disabled={saving}>
               {saving ? (

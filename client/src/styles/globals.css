@@ -3,33 +3,53 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Light Theme: Brushed Aluminum ── */
   :root {
-    --color-surface: #F5F3F0;
-    --color-surface-raised: #FAFAF8;
-    --color-surface-inset: #EDEAE6;
-    --color-border: #DDD9D3;
-    --color-border-light: #E8E5E0;
-    --color-text-primary: #2C2C2C;
-    --color-text-secondary: #6B6B6B;
-    --color-text-muted: #9B9B9B;
-    --color-accent: #5B7FBF;
-    --color-accent-soft: #E8EDF5;
-    --color-bg-white: #ffffff;
+    --color-surface: #c8c8cc;
+    --color-surface-raised: #d6d6da;
+    --color-surface-inset: #b0b0b6;
+    --color-surface-plate: #bfc0c5;
+    --color-border: #a0a0a8;
+    --color-border-light: #b8b8bf;
+    --color-border-groove: #8e8e96;
+    --color-text-primary: #1a1a1f;
+    --color-text-secondary: #4a4a52;
+    --color-text-muted: #6e6e78;
+    --color-accent: #00BCD4;
+    --color-accent-glow: rgba(0, 188, 212, 0.35);
+    --color-accent-soft: #d0eff4;
+    --color-led-online: #00E676;
+    --color-led-idle: #FFD740;
+    --color-led-dnd: #FF5252;
+    --color-led-off: #7a7a82;
+    --color-metal-highlight: rgba(255, 255, 255, 0.45);
+    --color-metal-shadow: rgba(0, 0, 0, 0.22);
+    --color-bg-white: #d2d2d6;
     --color-bg-black-20: rgba(0, 0, 0, 0.2);
   }
 
+  /* ── Dark Theme: Gunmetal Steel ── */
   [data-theme='dark'] {
-    --color-surface: #1a1b1e;
-    --color-surface-raised: #232428;
-    --color-surface-inset: #141517;
-    --color-border: #2e3035;
-    --color-border-light: #383a40;
-    --color-text-primary: #e4e4e7;
-    --color-text-secondary: #a1a1aa;
-    --color-text-muted: #71717a;
-    --color-accent: #7B9FDF;
-    --color-accent-soft: #1e2a3e;
-    --color-bg-white: #2a2b30;
+    --color-surface: #2a2a30;
+    --color-surface-raised: #353540;
+    --color-surface-inset: #1e1e24;
+    --color-surface-plate: #30303a;
+    --color-border: #404048;
+    --color-border-light: #48484f;
+    --color-border-groove: #1a1a20;
+    --color-text-primary: #e0e0e4;
+    --color-text-secondary: #9a9aa2;
+    --color-text-muted: #6a6a74;
+    --color-accent: #26C6DA;
+    --color-accent-glow: rgba(38, 198, 218, 0.4);
+    --color-accent-soft: #1a2e32;
+    --color-led-online: #69F0AE;
+    --color-led-idle: #FFE57F;
+    --color-led-dnd: #FF8A80;
+    --color-led-off: #44444c;
+    --color-metal-highlight: rgba(255, 255, 255, 0.08);
+    --color-metal-shadow: rgba(0, 0, 0, 0.5);
+    --color-bg-white: #2e2e34;
     --color-bg-black-20: rgba(0, 0, 0, 0.5);
   }
 
@@ -47,6 +67,7 @@
     color: var(--color-text-primary);
   }
 
+  /* ── Scrollbar ── */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
@@ -67,49 +88,256 @@
 }
 
 @layer components {
-  .skeu-panel {
-    @apply bg-surface-raised rounded-skeu shadow-skeu-panel border border-border-light;
+  /* ══════════════════════════════════════════
+     INDUSTRIAL DESIGN SYSTEM
+     ══════════════════════════════════════════ */
+
+  /* ── Raised Metallic Panel ── */
+  .ind-panel {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow:
+      0 2px 4px var(--color-metal-shadow),
+      inset 0 1px 0 var(--color-metal-highlight);
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-raised) 0%,
+      var(--color-surface-plate) 100%
+    );
   }
 
-  .skeu-panel-raised {
-    @apply rounded-skeu-lg shadow-skeu-panel border border-border-light;
-    background-color: var(--color-bg-white);
+  /* ── Raised Panel (white variant) ── */
+  .ind-panel-raised {
+    border: 1px solid var(--color-border-light);
+    border-radius: 8px;
+    box-shadow:
+      0 3px 10px var(--color-metal-shadow),
+      inset 0 1px 0 var(--color-metal-highlight);
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-raised) 0%,
+      var(--color-surface-plate) 100%
+    );
   }
 
-  .skeu-inset {
-    @apply bg-surface-inset rounded-skeu shadow-skeu-inset border border-border;
+  /* ── Recessed Area ── */
+  .ind-recess {
+    background: var(--color-surface-inset);
+    border: 1px solid var(--color-border-groove);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 4px var(--color-metal-shadow);
   }
 
-  .skeu-button {
-    @apply px-4 py-2 rounded-skeu font-medium text-sm transition-all duration-150
-           bg-surface-raised border border-border shadow-skeu-embossed
-           hover:shadow-skeu-raised active:shadow-skeu-inset active:bg-surface-inset;
+  /* ── Embossed Metallic Button ── */
+  .ind-button {
+    @apply px-4 py-2 font-medium text-sm transition-all duration-100 cursor-pointer;
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-raised) 0%,
+      var(--color-surface) 100%
+    );
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 var(--color-metal-highlight),
+      0 2px 3px var(--color-metal-shadow);
     color: var(--color-text-primary);
   }
 
-  .skeu-button-primary {
-    @apply skeu-button text-white;
-    background-color: var(--color-accent);
-    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  .ind-button:hover {
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-raised) 20%,
+      var(--color-surface) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 var(--color-metal-highlight),
+      0 3px 5px var(--color-metal-shadow);
   }
 
-  .skeu-button-primary:hover {
-    background-color: color-mix(in srgb, var(--color-accent) 90%, black);
+  .ind-button:active {
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-inset) 0%,
+      var(--color-surface) 100%
+    );
+    box-shadow: inset 0 2px 4px var(--color-metal-shadow);
   }
 
-  .skeu-button-primary:active {
-    background-color: color-mix(in srgb, var(--color-accent) 80%, black);
+  /* ── Primary Button (Cyan LED Glow) ── */
+  .ind-button-primary {
+    @apply px-4 py-2 font-medium text-sm text-white transition-all duration-100 cursor-pointer;
+    background: linear-gradient(
+      180deg,
+      var(--color-accent) 0%,
+      color-mix(in srgb, var(--color-accent) 75%, black) 100%
+    );
+    border: 1px solid color-mix(in srgb, var(--color-accent) 60%, black);
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 2px 3px var(--color-metal-shadow),
+      0 0 8px var(--color-accent-glow);
   }
 
-  .skeu-input {
-    @apply w-full px-3 py-2 rounded-skeu bg-surface-inset border border-border
-           shadow-skeu-inset transition-all duration-150 text-sm;
+  .ind-button-primary:hover {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 3px 5px var(--color-metal-shadow),
+      0 0 14px var(--color-accent-glow);
+  }
+
+  .ind-button-primary:active {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-accent) 80%, black) 0%,
+      color-mix(in srgb, var(--color-accent) 60%, black) 100%
+    );
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 6px var(--color-accent-glow);
+  }
+
+  /* ── Inset Input Field ── */
+  .ind-input {
+    @apply w-full px-3 py-2 text-sm transition-all duration-150;
+    background: var(--color-surface-inset);
+    border: 1px solid var(--color-border-groove);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 4px var(--color-metal-shadow);
     color: var(--color-text-primary);
   }
 
-  .skeu-input:focus {
+  .ind-input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  .ind-input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+    border-color: var(--color-accent);
+    box-shadow:
+      inset 0 2px 4px var(--color-metal-shadow),
+      0 0 0 2px var(--color-accent-glow);
   }
+
+  /* ── LED Indicator Dot ── */
+  .ind-led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .ind-led-on {
+    box-shadow: 0 0 4px currentColor, 0 0 8px currentColor;
+  }
+
+  .ind-led-off {
+    background-color: var(--color-led-off);
+    box-shadow: none;
+  }
+
+  /* ── LED Pulse Animation ── */
+  @keyframes led-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .ind-led-pulse {
+    animation: led-pulse 2s ease-in-out infinite;
+  }
+
+  /* ── Groove Divider ── */
+  .ind-groove {
+    height: 2px;
+    background: linear-gradient(
+      180deg,
+      var(--color-border-groove) 0%,
+      var(--color-metal-highlight) 100%
+    );
+    border: none;
+  }
+
+  /* ── Section Label (Industrial Engraved Text) ── */
+  .ind-label {
+    @apply text-[11px] font-semibold uppercase tracking-widest;
+    color: var(--color-text-muted);
+    text-shadow: 0 1px 0 var(--color-metal-highlight);
+  }
+
+  /* ── Metallic Toggle Switch ── */
+  .ind-toggle {
+    @apply relative inline-flex items-center cursor-pointer;
+    width: 36px;
+    height: 20px;
+    background: var(--color-surface-inset);
+    border: 1px solid var(--color-border-groove);
+    border-radius: 10px;
+    box-shadow: inset 0 2px 4px var(--color-metal-shadow);
+    transition: all 0.2s ease;
+  }
+
+  .ind-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(
+      180deg,
+      var(--color-surface-raised) 0%,
+      var(--color-surface) 100%
+    );
+    border: 1px solid var(--color-border);
+    box-shadow: 0 1px 3px var(--color-metal-shadow);
+    transition: transform 0.2s ease;
+  }
+
+  .ind-toggle.active {
+    border-color: var(--color-accent);
+    box-shadow:
+      inset 0 2px 4px var(--color-metal-shadow),
+      0 0 6px var(--color-accent-glow);
+  }
+
+  .ind-toggle.active::after {
+    transform: translateX(16px);
+    background: linear-gradient(
+      180deg,
+      var(--color-accent) 0%,
+      color-mix(in srgb, var(--color-accent) 75%, black) 100%
+    );
+    border-color: color-mix(in srgb, var(--color-accent) 60%, black);
+  }
+
+  /* ── Metallic Scrollbar Track ── */
+  .ind-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      90deg,
+      var(--color-border) 0%,
+      var(--color-border-light) 50%,
+      var(--color-border) 100%
+    );
+    border-radius: 3px;
+  }
+
+  /* ── Backward-compat aliases (will be removed) ── */
+  .skeu-panel { @apply ind-panel; }
+  .skeu-panel-raised { @apply ind-panel-raised; }
+  .skeu-inset { @apply ind-recess; }
+  .skeu-button { @apply ind-button; }
+  .skeu-button-primary { @apply ind-button-primary; }
+  .skeu-input { @apply ind-input; }
+
+  .rounded-skeu { border-radius: 6px; }
+  .rounded-skeu-lg { border-radius: 8px; }
+  .rounded-skeu-xl { border-radius: 12px; }
+
+  .shadow-skeu-raised { box-shadow: 0 2px 4px var(--color-metal-shadow), inset 0 1px 0 var(--color-metal-highlight); }
+  .shadow-skeu-panel { box-shadow: 0 3px 10px var(--color-metal-shadow), inset 0 1px 0 var(--color-metal-highlight); }
+  .shadow-skeu-modal { box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 1px 0 var(--color-metal-highlight); }
+  .shadow-skeu-inset { box-shadow: inset 0 2px 4px var(--color-metal-shadow); }
+  .shadow-skeu-embossed { box-shadow: inset 0 -1px 0 var(--color-metal-shadow), inset 0 1px 0 var(--color-metal-highlight), 0 2px 3px var(--color-metal-shadow); }
 }

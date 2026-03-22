@@ -24,17 +24,17 @@ function formatFileSize(bytes: number): string {
 }
 
 function getFileIconInfo(mimeType: string) {
-  if (mimeType.startsWith('image/')) return { icon: ImageIcon, color: 'text-accent', bg: 'bg-accent/10' }
-  if (mimeType.startsWith('video/')) return { icon: Film, color: 'text-lavender', bg: 'bg-lavender/10' }
-  if (mimeType.startsWith('audio/')) return { icon: Music, color: 'text-warning', bg: 'bg-warning/10' }
-  if (mimeType.includes('pdf')) return { icon: FileText, color: 'text-error', bg: 'bg-error/10' }
+  if (mimeType.startsWith('image/')) return { icon: ImageIcon, color: 'var(--color-accent)' }
+  if (mimeType.startsWith('video/')) return { icon: Film, color: '#9B8FBF' }
+  if (mimeType.startsWith('audio/')) return { icon: Music, color: 'var(--color-led-idle)' }
+  if (mimeType.includes('pdf')) return { icon: FileText, color: '#FF5252' }
   if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
-    return { icon: FileSpreadsheet, color: 'text-success', bg: 'bg-success/10' }
+    return { icon: FileSpreadsheet, color: 'var(--color-led-online)' }
   if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('rar'))
-    return { icon: Archive, color: 'text-warning', bg: 'bg-warning/10' }
+    return { icon: Archive, color: 'var(--color-led-idle)' }
   if (mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('javascript'))
-    return { icon: FileCode, color: 'text-accent', bg: 'bg-accent/10' }
-  return { icon: File, color: 'text-muted', bg: 'bg-surface-inset' }
+    return { icon: FileCode, color: 'var(--color-accent)' }
+  return { icon: File, color: 'var(--color-text-muted)' }
 }
 
 function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
@@ -53,7 +53,8 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
         <img
           src={previewUrl}
           alt={attachment.original_filename}
-          className="max-w-xs max-h-64 rounded-skeu border border-border-light cursor-pointer hover:opacity-90 transition-opacity"
+          className="max-w-xs max-h-64 rounded-ind cursor-pointer hover:opacity-90 transition-opacity"
+          style={{ border: '1px solid var(--color-border)', boxShadow: 'inset 0 1px 2px var(--color-metal-shadow)' }}
           onError={() => setImgError(true)}
           onClick={() => setExpanded(!expanded)}
         />
@@ -65,7 +66,8 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
             <img
               src={previewUrl}
               alt={attachment.original_filename}
-              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg"
+              className="max-w-[90vw] max-h-[90vh] rounded-ind-lg"
+              style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
             />
           </div>
         )}
@@ -73,7 +75,7 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
           <ImageIcon size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
           <span className="text-[10px] text-muted">({formatFileSize(attachment.file_size)})</span>
-          <a href={downloadUrl} download={attachment.original_filename} className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+          <a href={downloadUrl} download={attachment.original_filename} className="inline-flex items-center gap-0.5 text-[10px] hover:underline" style={{ color: 'var(--color-accent)' }}>
             <Download size={10} /> Download
           </a>
         </div>
@@ -84,11 +86,11 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
   if (isVideo) {
     return (
       <div className="mt-1.5">
-        <video src={downloadUrl} controls className="max-w-xs max-h-48 rounded-skeu border border-border-light" />
+        <video src={downloadUrl} controls className="max-w-xs max-h-48 rounded-ind" style={{ border: '1px solid var(--color-border)' }} />
         <div className="flex items-center gap-2 mt-1">
           <Film size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
-          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] hover:underline" style={{ color: 'var(--color-accent)' }}>
             <Download size={10} /> Download
           </a>
         </div>
@@ -103,7 +105,7 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
         <div className="flex items-center gap-2 mt-1">
           <Music size={11} className="text-muted" />
           <span className="text-[10px] text-muted">{attachment.original_filename}</span>
-          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:underline">
+          <a href={downloadUrl} download className="inline-flex items-center gap-0.5 text-[10px] hover:underline" style={{ color: 'var(--color-accent)' }}>
             <Download size={10} /> Download
           </a>
         </div>
@@ -111,12 +113,12 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
     )
   }
 
-  // Generic file card with proper icon
-  const { icon: FileIcon, color, bg } = getFileIconInfo(attachment.mime_type)
+  // Generic file card
+  const { icon: FileIcon, color } = getFileIconInfo(attachment.mime_type)
   return (
-    <div className="mt-1.5 flex items-center gap-2.5 p-2.5 rounded-skeu bg-surface-inset border border-border-light max-w-xs">
-      <div className={`w-9 h-9 rounded-skeu ${bg} flex items-center justify-center flex-shrink-0`}>
-        <FileIcon size={18} className={color} />
+    <div className="mt-1.5 flex items-center gap-2.5 p-2.5 rounded-ind ind-recess max-w-xs">
+      <div className="w-9 h-9 rounded-ind flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-surface-plate)' }}>
+        <FileIcon size={18} style={{ color }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{attachment.original_filename}</div>
@@ -125,7 +127,8 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
       <a
         href={downloadUrl}
         download={attachment.original_filename}
-        className="p-1 rounded text-accent hover:bg-accent/10 transition-colors flex-shrink-0"
+        className="p-1 rounded-ind transition-colors flex-shrink-0"
+        style={{ color: 'var(--color-accent)' }}
         title="Download"
       >
         <Download size={15} />
@@ -173,7 +176,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const quickReactions = ['👍', '❤️', '😂', '😮', '😢']
 
   return (
-    <div className="group flex gap-3 py-1.5 px-2 rounded-skeu hover:bg-surface-raised/50 transition-colors">
+    <div
+      className="group flex gap-3 py-2 px-3 rounded-ind transition-all"
+      style={{
+        borderLeft: isOwn ? '2px solid var(--color-accent)' : '2px solid transparent',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--color-surface-plate)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+      }}
+    >
       <Avatar
         name={message.user.profile?.display_name || message.user.username}
         size="sm"
@@ -184,18 +198,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {message.user.profile?.display_name || message.user.username}
           </span>
-          <span className="text-[10px] text-muted">
+          <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
             {format(new Date(message.created_at), 'HH:mm')}
           </span>
           {message.is_edited && (
-            <span className="text-[10px] text-muted">{t('chat.edited')}</span>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{t('chat.edited')}</span>
           )}
         </div>
 
         {/* Reply preview */}
         {message.reply_to_preview && (
-          <div className="mt-0.5 ps-3 border-s-2 border-accent/30 text-xs text-muted">
-            <span className="font-medium text-accent">
+          <div className="mt-0.5 ps-3 text-xs" style={{ borderInlineStart: '2px solid var(--color-accent)', color: 'var(--color-text-muted)' }}>
+            <span style={{ color: 'var(--color-accent)', fontWeight: 500 }}>
               {message.reply_to_preview.user.profile?.display_name || message.reply_to_preview.user.username}
             </span>
             {': '}
@@ -207,7 +221,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {editing ? (
           <div className="mt-1">
             <input
-              className="skeu-input text-sm"
+              className="ind-input text-sm"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onKeyDown={(e) => {
@@ -234,7 +248,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
         {/* Reactions */}
         {message.reactions.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="flex flex-wrap gap-1 mt-1.5">
             {message.reactions.map((r) => (
               <button
                 key={r.emoji}
@@ -242,11 +256,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   if (!currentChannel) return
                   if (!r.reacted) addReaction(currentChannel.id, message.id, r.emoji)
                 }}
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${
-                  r.reacted
-                    ? 'bg-accent-soft border-accent/30 text-accent'
-                    : 'bg-surface-raised border-border-light text-muted hover:bg-surface-inset'
-                }`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-ind text-xs transition-all"
+                style={{
+                  background: r.reacted ? 'var(--color-accent-soft)' : 'var(--color-surface-inset)',
+                  border: `1px solid ${r.reacted ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                  color: r.reacted ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                  boxShadow: r.reacted ? '0 0 4px var(--color-accent-glow)' : 'inset 0 1px 2px var(--color-metal-shadow)',
+                }}
               >
                 <span>{r.emoji}</span>
                 <span>{r.count}</span>
@@ -256,20 +272,32 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
       </div>
 
-      {/* Hover actions */}
+      {/* Hover actions — small metallic buttons */}
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-start gap-0.5 pt-1">
         {quickReactions.slice(0, 3).map((emoji) => (
           <button
             key={emoji}
             onClick={() => currentChannel && addReaction(currentChannel.id, message.id, emoji)}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-inset text-xs"
+            className="w-6 h-6 flex items-center justify-center rounded-ind text-xs transition-all"
+            style={{
+              background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+              border: '1px solid var(--color-border)',
+              boxShadow: 'inset 0 1px 0 var(--color-metal-highlight), 0 1px 2px var(--color-metal-shadow)',
+            }}
           >
             {emoji}
           </button>
         ))}
         <DropdownMenu
           trigger={
-            <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-inset text-muted">
+            <button
+              className="w-6 h-6 flex items-center justify-center rounded-ind text-muted transition-all"
+              style={{
+                background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'inset 0 1px 0 var(--color-metal-highlight), 0 1px 2px var(--color-metal-shadow)',
+              }}
+            >
               <MoreHorizontal size={14} />
             </button>
           }

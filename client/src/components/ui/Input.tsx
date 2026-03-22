@@ -11,15 +11,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1">
         {label && (
-          <label className="block text-sm font-medium text-gray-600">
+          <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
             {label}
           </label>
         )}
         <input
           ref={ref}
           className={clsx(
-            'skeu-input',
-            error && 'border-error/50 focus:ring-error/30',
+            'ind-input',
+            error && 'border-error',
             className,
           )}
           {...props}

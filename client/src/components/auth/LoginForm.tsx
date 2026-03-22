@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
+import { Radio } from 'lucide-react'
 
 interface LoginFormProps {
   onSwitchToRegister: () => void
@@ -33,8 +33,22 @@ export function LoginForm({ onSwitchToRegister, onSwitchToForgot }: LoginFormPro
   }
 
   return (
-    <Card className="w-full max-w-sm p-6">
-      <h1 className="text-xl font-bold text-center mb-6 text-gray-800">{t('auth.login')}</h1>
+    <div className="w-full max-w-sm ind-panel-raised p-6" style={{ borderRadius: '12px' }}>
+      {/* Logo area */}
+      <div className="flex flex-col items-center mb-6">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+          style={{
+            background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+            border: '2px solid var(--color-border)',
+            boxShadow: 'inset 0 1px 0 var(--color-metal-highlight), 0 2px 6px var(--color-metal-shadow)',
+          }}
+        >
+          <Radio size={24} style={{ color: 'var(--color-accent)' }} />
+        </div>
+        <h1 className="text-xl font-bold tracking-wide" style={{ color: 'var(--color-text-primary)' }}>{t('auth.login')}</h1>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label={t('auth.username')}
@@ -54,16 +68,16 @@ export function LoginForm({ onSwitchToRegister, onSwitchToForgot }: LoginFormPro
         </Button>
       </form>
       <div className="mt-4 text-center space-y-2">
-        <button onClick={onSwitchToForgot} className="text-xs text-accent hover:underline">
+        <button onClick={onSwitchToForgot} className="text-xs hover:underline" style={{ color: 'var(--color-accent)' }}>
           {t('auth.forgotPassword')}
         </button>
         <p className="text-xs text-muted">
           {t('auth.noAccount')}{' '}
-          <button onClick={onSwitchToRegister} className="text-accent hover:underline">
+          <button onClick={onSwitchToRegister} className="hover:underline" style={{ color: 'var(--color-accent)' }}>
             {t('auth.register')}
           </button>
         </p>
       </div>
-    </Card>
+    </div>
   )
 }

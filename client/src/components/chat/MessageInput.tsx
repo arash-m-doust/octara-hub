@@ -47,7 +47,6 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
       formData.append('file', file)
       formData.append('channel_id', String(currentChannel.id))
       await fileApi.upload(formData)
-      // Refresh messages to show the file message
       await fetchMessages(currentChannel.id)
     } catch (err) {
       console.error('File upload failed:', err)
@@ -59,11 +58,18 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
   }
 
   return (
-    <div className="flex-shrink-0 px-4 pb-4">
+    <div className="flex-shrink-0 px-4 pb-3">
       {/* Reply indicator */}
       {replyTo && (
-        <div className="flex items-center gap-2 mb-1 px-3 py-1.5 bg-accent-soft rounded-t-skeu text-xs">
-          <span className="text-accent">Replying to</span>
+        <div
+          className="flex items-center gap-2 mb-1 px-3 py-1.5 text-xs"
+          style={{
+            background: 'var(--color-accent-soft)',
+            borderRadius: '6px 6px 0 0',
+            borderLeft: '2px solid var(--color-accent)',
+          }}
+        >
+          <span style={{ color: 'var(--color-accent)' }}>Replying to</span>
           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{replyTo.user.profile?.display_name || replyTo.user.username}</span>
           <span className="text-muted truncate flex-1">{replyTo.content}</span>
           <button onClick={() => setReplyTo(null)} className="text-muted hover:text-error transition-colors">
@@ -76,15 +82,23 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
         <div className="text-xs text-error mb-1 px-3">{error}</div>
       )}
 
-      <div className="flex items-end gap-2 bg-surface-raised rounded-skeu-lg border border-border-light shadow-skeu-panel p-2">
+      {/* Input bar — recessed metal panel */}
+      <div
+        className="flex items-end gap-2 p-2 rounded-ind-lg"
+        style={{
+          background: 'var(--color-surface-inset)',
+          border: '1px solid var(--color-border-groove)',
+          boxShadow: 'inset 0 2px 4px var(--color-metal-shadow)',
+        }}
+      >
         {/* File upload */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu hover:bg-surface-inset text-muted transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-ind ind-button p-0 text-muted"
           disabled={uploading}
           title="Attach file"
         >
-          {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+          {uploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
         </button>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
 
@@ -99,14 +113,25 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
           rows={1}
         />
 
-        {/* Send button */}
+        {/* Send button — cyan when content present */}
         <button
           onClick={handleSend}
           disabled={!content.trim()}
-          className="w-8 h-8 flex items-center justify-center rounded-skeu bg-accent text-white disabled:opacity-40 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-ind transition-all"
+          style={{
+            background: content.trim()
+              ? 'linear-gradient(180deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 75%, black) 100%)'
+              : 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+            border: `1px solid ${content.trim() ? 'color-mix(in srgb, var(--color-accent) 60%, black)' : 'var(--color-border)'}`,
+            color: content.trim() ? 'white' : 'var(--color-text-muted)',
+            boxShadow: content.trim()
+              ? '0 0 8px var(--color-accent-glow), inset 0 1px 0 rgba(255,255,255,0.2)'
+              : 'inset 0 1px 0 var(--color-metal-highlight), 0 1px 2px var(--color-metal-shadow)',
+            opacity: content.trim() ? 1 : 0.5,
+          }}
           title="Send"
         >
-          <Send size={16} />
+          <Send size={14} />
         </button>
       </div>
     </div>

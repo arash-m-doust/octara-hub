@@ -30,13 +30,15 @@ export function DropdownMenu({ trigger, items }: DropdownMenuProps) {
     <div ref={ref} className="relative inline-flex">
       <div onClick={() => setOpen(!open)}>{trigger}</div>
       {open && (
-        <div className="absolute end-0 top-full mt-1 z-40 min-w-[160px] bg-white rounded-skeu shadow-skeu-modal border border-border-light py-1">
+        <div
+          className="absolute end-0 top-full mt-1 z-40 min-w-[160px] ind-panel py-1"
+          style={{ boxShadow: '0 6px 20px var(--color-metal-shadow)' }}
+        >
           {items.map((item, i) => (
             <button
               key={i}
-              className={`w-full text-start px-3 py-1.5 text-sm hover:bg-surface-inset transition-colors ${
-                item.danger ? 'text-error' : 'text-gray-700'
-              }`}
+              className="w-full text-start px-3 py-1.5 text-sm transition-all duration-100 hover:bg-surface-inset"
+              style={{ color: item.danger ? '#FF5252' : 'var(--color-text-primary)' }}
               onClick={() => {
                 item.onClick()
                 setOpen(false)

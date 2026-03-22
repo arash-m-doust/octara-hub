@@ -20,17 +20,17 @@ function formatFileSize(bytes: number): string {
 }
 
 function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith('image/')) return { icon: Image, color: 'text-accent' }
-  if (mimeType.startsWith('video/')) return { icon: Film, color: 'text-lavender' }
-  if (mimeType.startsWith('audio/')) return { icon: Music, color: 'text-warning' }
-  if (mimeType.includes('pdf')) return { icon: FileText, color: 'text-error' }
+  if (mimeType.startsWith('image/')) return { icon: Image, color: 'var(--color-accent)' }
+  if (mimeType.startsWith('video/')) return { icon: Film, color: '#9B8FBF' }
+  if (mimeType.startsWith('audio/')) return { icon: Music, color: 'var(--color-led-idle)' }
+  if (mimeType.includes('pdf')) return { icon: FileText, color: '#FF5252' }
   if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('csv'))
-    return { icon: FileSpreadsheet, color: 'text-success' }
+    return { icon: FileSpreadsheet, color: 'var(--color-led-online)' }
   if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('rar') || mimeType.includes('7z'))
-    return { icon: Archive, color: 'text-warning' }
+    return { icon: Archive, color: 'var(--color-led-idle)' }
   if (mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('javascript') || mimeType.includes('html'))
-    return { icon: FileCode, color: 'text-accent' }
-  return { icon: File, color: 'text-muted' }
+    return { icon: FileCode, color: 'var(--color-accent)' }
+  return { icon: File, color: 'var(--color-text-muted)' }
 }
 
 function FileItem({ file }: { file: Attachment }) {
@@ -40,12 +40,12 @@ function FileItem({ file }: { file: Attachment }) {
   const { icon: FileIcon, color } = getFileIcon(file.mime_type)
 
   return (
-    <div className="flex items-center gap-2.5 p-2 rounded-skeu hover:bg-surface-inset group transition-colors">
+    <div className="flex items-center gap-2.5 p-2 rounded-ind hover:bg-surface-inset group transition-all">
       {isImage && previewUrl ? (
-        <img src={previewUrl} alt={file.original_filename} className="w-10 h-10 rounded object-cover border border-border-light flex-shrink-0" />
+        <img src={previewUrl} alt={file.original_filename} className="w-10 h-10 rounded-ind object-cover flex-shrink-0" style={{ border: '1px solid var(--color-border)' }} />
       ) : (
-        <div className="w-10 h-10 rounded-skeu bg-surface-inset border border-border-light flex items-center justify-center flex-shrink-0">
-          <FileIcon size={18} className={color} />
+        <div className="w-10 h-10 rounded-ind ind-recess flex items-center justify-center flex-shrink-0">
+          <FileIcon size={18} style={{ color }} />
         </div>
       )}
       <div className="flex-1 min-w-0">
@@ -55,7 +55,8 @@ function FileItem({ file }: { file: Attachment }) {
       <a
         href={downloadUrl}
         download={file.original_filename}
-        className="opacity-0 group-hover:opacity-100 p-1 rounded text-accent hover:bg-accent/10 transition-all"
+        className="opacity-0 group-hover:opacity-100 p-1 rounded-ind transition-all"
+        style={{ color: 'var(--color-accent)' }}
         title="Download"
       >
         <Download size={14} />
@@ -75,7 +76,6 @@ export function RightPanel() {
   const [pinnedMessages, setPinnedMessages] = useState<{ id: number; message: Message; created_at: string }[]>([])
   const [pinnedLoading, setPinnedLoading] = useState(false)
 
-  // Fetch pinned messages
   useEffect(() => {
     if (rightPanel !== 'pinned' || !currentChannel) return
     setPinnedLoading(true)
@@ -111,10 +111,16 @@ export function RightPanel() {
   }
 
   return (
-    <div className="w-[260px] flex-shrink-0 bg-surface-raised border-s border-border-light flex flex-col">
+    <div
+      className="w-[260px] flex-shrink-0 flex flex-col border-s"
+      style={{
+        background: 'linear-gradient(180deg, var(--color-surface-plate) 0%, var(--color-surface-inset) 100%)',
+        borderColor: 'var(--color-border-groove)',
+      }}
+    >
       {/* Header */}
-      <div className="p-3 border-b border-border-light flex items-center justify-between">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+      <div className="p-3 flex items-center justify-between" style={{ borderBottom: '2px solid transparent', borderImage: 'linear-gradient(90deg, var(--color-border-groove), var(--color-metal-highlight), var(--color-border-groove)) 1' }}>
+        <h3 className="ind-label text-xs">
           {rightPanel === 'members' && t('workspace.members')}
           {rightPanel === 'files' && t('files.browser')}
           {rightPanel === 'pinned' && t('chat.pinned')}
@@ -122,9 +128,9 @@ export function RightPanel() {
         </h3>
         <button
           onClick={() => setRightPanel(null)}
-          className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-error transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded-ind ind-button p-0 text-muted"
         >
-          <X size={14} />
+          <X size={12} />
         </button>
       </div>
 
@@ -134,7 +140,7 @@ export function RightPanel() {
         {rightPanel === 'members' && (
           <div className="space-y-1">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-skeu hover:bg-surface-inset transition-colors">
+              <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors">
                 <Avatar
                   name={m.user.profile?.display_name || m.user.username}
                   size="sm"
@@ -163,7 +169,9 @@ export function RightPanel() {
               </div>
             ) : files.length === 0 ? (
               <div className="text-center py-8">
-                <File size={32} className="mx-auto text-muted mb-2" />
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full ind-recess flex items-center justify-center">
+                  <File size={20} className="text-muted" />
+                </div>
                 <p className="text-sm text-muted">No files in this channel</p>
               </div>
             ) : (
@@ -182,13 +190,13 @@ export function RightPanel() {
             <div className="flex gap-1 mb-3">
               <input
                 type="text"
-                className="skeu-input text-xs"
+                className="ind-input text-xs"
                 placeholder="Search messages..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
-              <button onClick={handleSearch} className="skeu-button !px-2 !py-1.5">
+              <button onClick={handleSearch} className="ind-button !px-2 !py-1.5">
                 <Search size={14} />
               </button>
             </div>
@@ -199,7 +207,7 @@ export function RightPanel() {
             ) : searchResults.length > 0 ? (
               <div className="space-y-2">
                 {searchResults.map((msg) => (
-                  <div key={msg.id} className="p-2 rounded-skeu bg-surface-inset text-xs">
+                  <div key={msg.id} className="p-2 rounded-ind ind-recess text-xs">
                     <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                       {msg.user.profile?.display_name || msg.user.username}
                     </div>
@@ -209,7 +217,9 @@ export function RightPanel() {
               </div>
             ) : searchQuery ? (
               <div className="text-center py-8">
-                <Search size={32} className="mx-auto text-muted mb-2" />
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full ind-recess flex items-center justify-center">
+                  <Search size={20} className="text-muted" />
+                </div>
                 <p className="text-sm text-muted">No results found</p>
               </div>
             ) : null}
@@ -225,13 +235,15 @@ export function RightPanel() {
               </div>
             ) : pinnedMessages.length === 0 ? (
               <div className="text-center py-8">
-                <PinIcon size={32} className="mx-auto text-muted mb-2" />
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full ind-recess flex items-center justify-center">
+                  <PinIcon size={20} className="text-muted" />
+                </div>
                 <p className="text-sm text-muted">No pinned messages</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {pinnedMessages.map((pin) => (
-                  <div key={pin.id} className="p-2.5 rounded-skeu bg-surface-inset border border-border-light text-xs">
+                  <div key={pin.id} className="p-2.5 rounded-ind ind-recess text-xs" style={{ border: '1px solid var(--color-border)' }}>
                     <div className="flex items-center gap-2 mb-1">
                       <Avatar
                         name={pin.message.user.profile?.display_name || pin.message.user.username}

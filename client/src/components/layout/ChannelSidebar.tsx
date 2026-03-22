@@ -9,17 +9,15 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuthStore } from '@/stores/authStore'
-import { Hash, Lock, FolderPlus, Plus, ChevronDown, Settings, LogOut } from 'lucide-react'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
+import { Lock, FolderPlus, Plus, ChevronDown } from 'lucide-react'
 
 export function ChannelSidebar() {
   const { t } = useTranslation()
   const { currentWorkspace, categories, channels, currentChannel, setCurrentChannel, createChannel, createCategory } = useWorkspaceStore()
-  const { view } = useUIStore()
+  const { view, setMobileMenuOpen } = useUIStore()
   const { threads, currentThread, setCurrentThread } = useDMStore()
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
   const [showCreateChannel, setShowCreateChannel] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [showCreateCategory, setShowCreateCategory] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -27,12 +25,23 @@ export function ChannelSidebar() {
   const [isPrivate, setIsPrivate] = useState(false)
   const [error, setError] = useState('')
 
+  const selectChannel = (ch: typeof channels[0]) => {
+    setCurrentChannel(ch)
+    setMobileMenuOpen(false)
+  }
+
   // DM view
   if (view === 'dm') {
     return (
-      <div className="w-[240px] flex-shrink-0 bg-surface-raised border-e border-border-light flex flex-col">
-        <div className="p-3 border-b border-border-light">
-          <h2 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{t('dm.title')}</h2>
+      <div
+        className="w-[240px] flex-shrink-0 flex flex-col border-e"
+        style={{
+          background: 'linear-gradient(180deg, var(--color-surface-plate) 0%, var(--color-surface-inset) 100%)',
+          borderColor: 'var(--color-border-groove)',
+        }}
+      >
+        <div className="p-3 border-b" style={{ borderColor: 'var(--color-border-groove)' }}>
+          <h2 className="ind-label text-xs">{t('dm.title')}</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {threads.map((thread) => {
@@ -40,18 +49,24 @@ export function ChannelSidebar() {
             const displayName = thread.is_group
               ? thread.name || otherParticipants.map((p) => p.user.profile?.display_name || p.user.username).join(', ')
               : otherParticipants[0]?.user.profile?.display_name || otherParticipants[0]?.user.username || 'Unknown'
+            const isActive = currentThread?.id === thread.id
 
             return (
               <button
                 key={thread.id}
-                onClick={() => setCurrentThread(thread)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-skeu text-start transition-colors ${
-                  currentThread?.id === thread.id ? 'bg-accent-soft' : 'hover:bg-surface-inset'
-                }`}
+                onClick={() => { setCurrentThread(thread); setMobileMenuOpen(false) }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-ind text-start transition-all"
+                style={{
+                  background: isActive
+                    ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                    : 'transparent',
+                  border: isActive ? '1px solid var(--color-accent)' : '1px solid transparent',
+                  boxShadow: isActive ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 6px var(--color-accent-glow)' : 'none',
+                }}
               >
                 <Avatar name={displayName} size="sm" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{displayName}</div>
+                  <div className="text-sm font-medium truncate" style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-text-primary)' }}>{displayName}</div>
                   {thread.last_message && (
                     <div className="text-xs text-muted truncate">{thread.last_message.content}</div>
                   )}
@@ -61,23 +76,6 @@ export function ChannelSidebar() {
             )
           })}
         </div>
-        {/* User Bar (DM view) */}
-        <div className="p-2 border-t border-border-light">
-          <div className="flex items-center gap-2 px-1">
-            <Avatar name={user?.profile?.display_name || user?.username || '?'} size="sm" status={user?.profile?.status || 'online'} />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{user?.profile?.display_name || user?.username}</div>
-              <div className="text-[10px] text-muted capitalize">{user?.profile?.status || 'online'}</div>
-            </div>
-            <button onClick={() => setShowSettings(true)} className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-accent transition-colors" title="Settings">
-              <Settings size={13} />
-            </button>
-            <button onClick={logout} className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-error transition-colors" title="Logout">
-              <LogOut size={13} />
-            </button>
-          </div>
-        </div>
-        <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
       </div>
     )
   }
@@ -85,7 +83,13 @@ export function ChannelSidebar() {
   // Workspace view
   if (!currentWorkspace) {
     return (
-      <div className="w-[240px] flex-shrink-0 bg-surface-raised border-e border-border-light flex items-center justify-center">
+      <div
+        className="w-[240px] flex-shrink-0 flex items-center justify-center border-e"
+        style={{
+          background: 'var(--color-surface-plate)',
+          borderColor: 'var(--color-border-groove)',
+        }}
+      >
         <p className="text-sm text-muted">{t('workspace.create')}</p>
       </div>
     )
@@ -124,40 +128,71 @@ export function ChannelSidebar() {
     }
   }
 
-  const renderChannel = (ch: typeof channels[0]) => (
-    <button
-      key={ch.id}
-      onClick={() => setCurrentChannel(ch)}
-      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-skeu text-start text-sm transition-colors ${
-        currentChannel?.id === ch.id ? 'bg-accent-soft text-accent font-medium' : 'hover:bg-surface-inset'
-      }`}
-      style={currentChannel?.id !== ch.id ? { color: 'var(--color-text-secondary)' } : {}}
-    >
-      {ch.is_private ? <Lock size={14} className="text-muted flex-shrink-0" /> : <Hash size={14} className="text-muted flex-shrink-0" />}
-      <span className="truncate">{ch.name}</span>
-      <Badge count={ch.unread_count} />
-    </button>
-  )
+  const renderChannel = (ch: typeof channels[0]) => {
+    const isActive = currentChannel?.id === ch.id
+    const hasUnread = ch.unread_count > 0
+
+    return (
+      <button
+        key={ch.id}
+        onClick={() => selectChannel(ch)}
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-ind text-start text-sm transition-all"
+        style={{
+          background: isActive
+            ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+            : 'transparent',
+          border: isActive ? '1px solid var(--color-accent)' : '1px solid transparent',
+          boxShadow: isActive ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 6px var(--color-accent-glow)' : 'none',
+          color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+          fontWeight: isActive ? 600 : 400,
+        }}
+      >
+        {/* LED indicator */}
+        <span
+          className={`ind-led ${hasUnread ? 'ind-led-pulse' : ''}`}
+          style={{
+            backgroundColor: isActive
+              ? 'var(--color-accent)'
+              : hasUnread
+                ? 'var(--color-accent)'
+                : 'var(--color-led-off)',
+            boxShadow: isActive || hasUnread
+              ? '0 0 4px var(--color-accent-glow), 0 0 8px var(--color-accent-glow)'
+              : 'none',
+          }}
+        />
+        {ch.is_private && <Lock size={12} className="text-muted flex-shrink-0" />}
+        <span className="truncate">{ch.name}</span>
+        <Badge count={ch.unread_count} variant="accent" />
+      </button>
+    )
+  }
 
   return (
-    <div className="w-[240px] flex-shrink-0 bg-surface-raised border-e border-border-light flex flex-col">
+    <div
+      className="w-[240px] flex-shrink-0 flex flex-col border-e"
+      style={{
+        background: 'linear-gradient(180deg, var(--color-surface-plate) 0%, var(--color-surface-inset) 100%)',
+        borderColor: 'var(--color-border-groove)',
+      }}
+    >
       {/* Workspace Header */}
-      <div className="p-3 border-b border-border-light flex items-center justify-between">
-        <h2 className="font-semibold text-sm truncate" style={{ color: 'var(--color-text-primary)' }}>{currentWorkspace.name}</h2>
+      <div className="p-3 flex items-center justify-between" style={{ borderBottom: '2px solid transparent', borderImage: 'linear-gradient(90deg, var(--color-border-groove), var(--color-metal-highlight), var(--color-border-groove)) 1' }}>
+        <h2 className="ind-label text-xs truncate">{currentWorkspace.name}</h2>
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => { setShowCreateCategory(true); setError('') }}
-            className="w-7 h-7 flex items-center justify-center rounded-skeu text-muted hover:text-accent hover:bg-surface-inset transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-ind text-muted hover:text-accent transition-colors"
             title="Create Category"
           >
-            <FolderPlus size={14} />
+            <FolderPlus size={13} />
           </button>
           <button
             onClick={() => { setShowCreateChannel(true); setError('') }}
-            className="w-7 h-7 flex items-center justify-center rounded-skeu text-muted hover:text-accent hover:bg-surface-inset transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-ind text-muted hover:text-accent transition-colors"
             title={t('channel.create')}
           >
-            <Plus size={14} />
+            <Plus size={13} />
           </button>
         </div>
       </div>
@@ -166,9 +201,11 @@ export function ChannelSidebar() {
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {categories.map((cat) => (
           <div key={cat.id}>
-            <div className="flex items-center gap-1 px-1 mb-1">
-              <ChevronDown size={12} className="text-muted" />
-              <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">{cat.name}</span>
+            {/* Category header — riveted divider */}
+            <div className="flex items-center gap-1.5 px-1 mb-1.5">
+              <ChevronDown size={10} className="text-muted" />
+              <span className="ind-label">{cat.name}</span>
+              <div className="flex-1 ind-groove" />
             </div>
             <div className="space-y-0.5">
               {channels.filter((ch) => ch.category === cat.id).map(renderChannel)}
@@ -184,52 +221,20 @@ export function ChannelSidebar() {
         )}
 
         {categories.length === 0 && channels.length === 0 && (
-          <div className="text-center py-4">
-            <Hash size={24} className="mx-auto text-muted mb-2" />
-            <p className="text-xs text-muted">No channels yet</p>
+          <div className="text-center py-6">
+            <div className="w-8 h-8 mx-auto mb-2 rounded-full ind-recess flex items-center justify-center">
+              <span className="ind-led" style={{ backgroundColor: 'var(--color-led-off)', width: '10px', height: '10px' }} />
+            </div>
+            <p className="text-xs text-muted mb-1">No channels yet</p>
             <button
               onClick={() => { setShowCreateChannel(true); setError('') }}
-              className="text-xs text-accent hover:underline mt-1"
+              className="text-xs text-accent hover:underline"
             >
               Create your first channel
             </button>
           </div>
         )}
       </div>
-
-      {/* User Bar */}
-      <div className="p-2 border-t border-border-light">
-        <div className="flex items-center gap-2 px-1">
-          <Avatar
-            name={user?.profile?.display_name || user?.username || '?'}
-            size="sm"
-            status={user?.profile?.status || 'online'}
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-              {user?.profile?.display_name || user?.username}
-            </div>
-            <div className="text-[10px] text-muted capitalize">{user?.profile?.status || 'online'}</div>
-          </div>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-accent transition-colors"
-            title="Settings"
-          >
-            <Settings size={13} />
-          </button>
-          <button
-            onClick={logout}
-            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-error transition-colors"
-            title="Logout"
-          >
-            <LogOut size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* Settings Panel */}
-      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Create Channel Modal */}
       <Modal isOpen={showCreateChannel} onClose={() => setShowCreateChannel(false)} title={t('channel.create')}>
@@ -243,7 +248,7 @@ export function ChannelSidebar() {
             autoFocus
           />
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="private" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+            <input type="checkbox" id="private" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} className="accent-[var(--color-accent)]" />
             <label htmlFor="private" className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
               <span className="inline-flex items-center gap-1">
                 <Lock size={12} /> {t('channel.private')}
@@ -251,9 +256,9 @@ export function ChannelSidebar() {
             </label>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>Category</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-secondary)' }}>Category</label>
             <select
-              className="skeu-input w-full"
+              className="ind-input w-full"
               value={selectedCategory || ''}
               onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
             >

@@ -3,6 +3,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useDMStore } from '@/stores/dmStore'
 import { ChatView } from '@/components/chat/ChatView'
 import { DMChatView } from '@/components/dm/DMChatView'
+import { Radio } from 'lucide-react'
 
 export function MainPanel() {
   const { currentChannel, currentWorkspace } = useWorkspaceStore()
@@ -18,7 +19,7 @@ export function MainPanel() {
       )
     }
     return (
-      <div className="flex-1 flex items-center justify-center text-muted">
+      <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
         Select a conversation
       </div>
     )
@@ -27,10 +28,12 @@ export function MainPanel() {
   if (!currentWorkspace) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="text-4xl">👋</div>
-          <h2 className="text-lg font-semibold text-gray-700">Welcome to BexChat</h2>
-          <p className="text-sm text-muted">Create or join a workspace to get started</p>
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full ind-recess flex items-center justify-center">
+            <Radio size={28} style={{ color: 'var(--color-accent)' }} />
+          </div>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>Welcome to BexChat</h2>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Create or join a workspace to get started</p>
         </div>
       </div>
     )
@@ -38,7 +41,7 @@ export function MainPanel() {
 
   if (!currentChannel) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted">
+      <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--color-text-muted)' }}>
         Select a channel to start chatting
       </div>
     )

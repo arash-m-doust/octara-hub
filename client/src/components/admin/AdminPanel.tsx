@@ -89,20 +89,24 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     <Modal isOpen={isOpen} onClose={onClose} title="Admin Panel" size="lg">
       <div className="flex gap-4 min-h-[420px]">
         {/* Sidebar nav */}
-        <div className="w-44 flex-shrink-0 border-e border-border-light pe-4 space-y-1">
+        <div className="w-44 flex-shrink-0 pe-4 space-y-1" style={{ borderInlineEnd: '2px solid transparent', borderImage: 'linear-gradient(180deg, var(--color-border-groove), var(--color-metal-highlight), var(--color-border-groove)) 1' }}>
           {TAB_CONFIG.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-skeu text-sm transition-all text-start ${
-                tab === key
-                  ? 'bg-accent text-white shadow-skeu-raised'
-                  : 'hover:bg-surface-inset'
-              }`}
-              style={tab !== key ? { color: 'var(--color-text-secondary)' } : {}}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-ind text-sm transition-all text-start"
+              style={{
+                background: tab === key
+                  ? 'linear-gradient(180deg, var(--color-surface-inset) 0%, var(--color-surface) 100%)'
+                  : 'transparent',
+                border: tab === key ? '1px solid var(--color-accent)' : '1px solid transparent',
+                boxShadow: tab === key ? 'inset 0 2px 4px var(--color-metal-shadow), 0 0 6px var(--color-accent-glow)' : 'none',
+                color: tab === key ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                fontWeight: tab === key ? 600 : 400,
+              }}
             >
               <Icon size={16} />
-              <span className="font-medium">{label}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
@@ -110,7 +114,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {error && (
-            <div className="flex items-center gap-2 text-xs text-error mb-3 p-2 rounded-skeu bg-error/10">
+            <div className="flex items-center gap-2 text-xs mb-3 p-2 rounded-ind" style={{ background: 'rgba(255,82,82,0.1)', color: '#FF5252', border: '1px solid rgba(255,82,82,0.3)' }}>
               <Activity size={14} />
               {error}
             </div>
@@ -123,13 +127,13 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
             </div>
           ) : (
             <>
-              {/* Dashboard */}
+              {/* Dashboard — Gauge-style stat cards */}
               {tab === 'stats' && stats && (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatCard icon={Users} label="Total Users" value={stats.total_users} color="text-accent" bg="bg-accent/10" />
-                  <StatCard icon={Server} label="Workspaces" value={stats.total_workspaces} color="text-lavender" bg="bg-lavender/10" />
-                  <StatCard icon={MessageSquare} label="Messages" value={stats.total_messages} color="text-success" bg="bg-success/10" />
-                  <StatCard icon={Hash} label="Channels" value={stats.total_channels} color="text-warning" bg="bg-warning/10" />
+                  <StatCard icon={Users} label="Total Users" value={stats.total_users} color="var(--color-accent)" />
+                  <StatCard icon={Server} label="Workspaces" value={stats.total_workspaces} color="#9B8FBF" />
+                  <StatCard icon={MessageSquare} label="Messages" value={stats.total_messages} color="var(--color-led-online)" />
+                  <StatCard icon={Hash} label="Channels" value={stats.total_channels} color="var(--color-led-idle)" />
                 </div>
               )}
 
@@ -137,9 +141,16 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
               {tab === 'users' && (
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {users.map((u) => (
-                    <div key={u.id} className="flex items-center gap-3 p-3 rounded-skeu bg-surface-inset border border-border-light">
-                      <div className="w-9 h-9 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-semibold text-accent">
+                    <div key={u.id} className="flex items-center gap-3 p-3 rounded-ind ind-recess">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+                          border: '2px solid var(--color-border)',
+                          boxShadow: 'inset 0 1px 0 var(--color-metal-highlight)',
+                        }}
+                      >
+                        <span className="text-sm font-semibold" style={{ color: 'var(--color-accent)' }}>
                           {(u.profile?.display_name || u.username).charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -153,12 +164,12 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                         <div className="text-xs text-muted truncate">{u.email}</div>
                         <div className="flex gap-1.5 mt-1">
                           {u.is_superuser && (
-                            <span className="inline-flex items-center gap-1 text-[10px] bg-error/10 text-error px-1.5 py-0.5 rounded-full font-medium">
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,82,82,0.1)', color: '#FF5252' }}>
                               <Crown size={10} /> Superuser
                             </span>
                           )}
                           {u.is_staff && !u.is_superuser && (
-                            <span className="inline-flex items-center gap-1 text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-medium">
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent)' }}>
                               <ShieldCheck size={10} /> Admin
                             </span>
                           )}
@@ -168,18 +179,15 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
                             onClick={() => toggleAdmin(u.id, u.is_staff)}
-                            className={`p-1.5 rounded-skeu transition-all ${
-                              u.is_staff
-                                ? 'bg-warning/10 text-warning hover:bg-warning/20'
-                                : 'bg-accent/10 text-accent hover:bg-accent/20'
-                            }`}
+                            className="p-1.5 rounded-ind ind-button"
                             title={u.is_staff ? 'Remove Admin' : 'Make Admin'}
                           >
-                            {u.is_staff ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}
+                            {u.is_staff ? <ShieldOff size={15} style={{ color: 'var(--color-led-idle)' }} /> : <ShieldCheck size={15} style={{ color: 'var(--color-accent)' }} />}
                           </button>
                           <button
                             onClick={() => deleteUser(u.id, u.username)}
-                            className="p-1.5 rounded-skeu bg-error/10 text-error hover:bg-error/20 transition-all"
+                            className="p-1.5 rounded-ind ind-button"
+                            style={{ color: '#FF5252' }}
                             title="Delete User"
                           >
                             <UserX size={15} />
@@ -198,9 +206,12 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
               {tab === 'workspaces' && (
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {workspaces.map((ws) => (
-                    <div key={ws.id} className="flex items-center gap-3 p-3 rounded-skeu bg-surface-inset border border-border-light">
-                      <div className="w-9 h-9 rounded-skeu bg-lavender/15 flex items-center justify-center flex-shrink-0">
-                        <Server size={16} className="text-lavender" />
+                    <div key={ws.id} className="flex items-center gap-3 p-3 rounded-ind ind-recess">
+                      <div
+                        className="w-9 h-9 rounded-ind flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'var(--color-surface-plate)' }}
+                      >
+                        <Server size={16} style={{ color: '#9B8FBF' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{ws.name}</div>
@@ -215,7 +226,8 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                       </div>
                       <button
                         onClick={() => deleteWorkspace(ws.id, ws.name)}
-                        className="p-1.5 rounded-skeu bg-error/10 text-error hover:bg-error/20 transition-all"
+                        className="p-1.5 rounded-ind ind-button"
+                        style={{ color: '#FF5252' }}
                         title="Delete Workspace"
                       >
                         <Trash2 size={15} />
@@ -235,22 +247,28 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
   )
 }
 
-function StatCard({ icon: Icon, label, value, color, bg }: {
+function StatCard({ icon: Icon, label, value, color }: {
   icon: LucideIcon
   label: string
   value: number
   color: string
-  bg: string
 }) {
   return (
-    <div className="bg-surface-inset rounded-skeu-lg p-4 border border-border-light">
+    <div className="rounded-ind-lg ind-recess p-4">
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-skeu ${bg} flex items-center justify-center`}>
-          <Icon size={20} className={color} />
+        <div
+          className="w-10 h-10 rounded-ind flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'inset 0 1px 0 var(--color-metal-highlight), 0 1px 2px var(--color-metal-shadow)',
+          }}
+        >
+          <Icon size={20} style={{ color }} />
         </div>
         <div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{value.toLocaleString()}</div>
-          <div className="text-xs text-muted">{label}</div>
+          <div className="text-2xl font-bold font-mono" style={{ color: 'var(--color-text-primary)' }}>{value.toLocaleString()}</div>
+          <div className="text-xs text-muted uppercase tracking-wider">{label}</div>
         </div>
       </div>
     </div>

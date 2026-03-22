@@ -41,8 +41,16 @@ export function DMChatView() {
   return (
     <>
       {/* DM Header */}
-      <div className="h-12 flex-shrink-0 flex items-center px-4 border-b border-border-light bg-surface-raised">
-        <h3 className="font-semibold text-sm">{displayName}</h3>
+      <div
+        className="h-11 flex-shrink-0 flex items-center px-4 border-b"
+        style={{
+          background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface-plate) 100%)',
+          borderColor: 'var(--color-border-groove)',
+          boxShadow: 'inset 0 1px 0 var(--color-metal-highlight)',
+        }}
+      >
+        <span className="ind-led ind-led-on mr-2" style={{ backgroundColor: 'var(--color-accent)', width: '6px', height: '6px' }} />
+        <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{displayName}</h3>
       </div>
 
       {/* Messages */}
