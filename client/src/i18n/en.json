@@ -83,6 +83,26 @@
     "auditLogs": "Audit Logs",
     "stats": "Statistics"
   },
+  "call": {
+    "voice": "Voice Call",
+    "video": "Video Call",
+    "voiceCall": "VOICE CALL",
+    "videoCall": "VIDEO CALL",
+    "startVoice": "Start Voice Call",
+    "startVideo": "Start Video Call",
+    "endCall": "End Call",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOn": "Turn Camera On",
+    "cameraOff": "Turn Camera Off",
+    "accept": "Accept",
+    "decline": "Decline",
+    "incomingVoice": "Incoming voice call...",
+    "incomingVideo": "Incoming video call...",
+    "connecting": "CONNECTING...",
+    "participants": "participants",
+    "minimize": "Minimize"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

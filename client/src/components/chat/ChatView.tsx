@@ -8,6 +8,7 @@ import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import type { Message } from '@/api/messages'
 import { Pin, Users, FolderOpen, Search } from 'lucide-react'
+import { CallButton } from '@/components/call/CallButton'
 
 export function ChatView() {
   const { t } = useTranslation()
@@ -57,6 +58,7 @@ export function ChatView() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <CallButton channelId={currentChannel.id} />
           <button onClick={() => toggleRightPanel('pinned')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('chat.pinned')}>
             <Pin size={14} />
           </button>

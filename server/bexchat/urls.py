@@ -11,5 +11,6 @@ urlpatterns = [
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/search/', include('apps.search.urls')),
     path('api/admin-panel/', include('apps.admin_panel.urls')),
+    path('api/calls/', include('apps.calls.urls')),
     path('api/realtime/', include('realtime.urls')),
 ]

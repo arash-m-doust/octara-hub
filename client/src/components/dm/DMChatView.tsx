@@ -6,6 +6,7 @@ import { realtime } from '@/realtime/connection'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { MessageInput } from '@/components/chat/MessageInput'
 import type { Message } from '@/api/messages'
+import { CallButton } from '@/components/call/CallButton'
 
 export function DMChatView() {
   const { t } = useTranslation()
@@ -49,8 +50,11 @@ export function DMChatView() {
           boxShadow: 'inset 0 1px 0 var(--color-metal-highlight)',
         }}
       >
-        <span className="ind-led ind-led-on mr-2" style={{ backgroundColor: 'var(--color-accent)', width: '6px', height: '6px' }} />
-        <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{displayName}</h3>
+        <div className="flex items-center flex-1">
+          <span className="ind-led ind-led-on mr-2" style={{ backgroundColor: 'var(--color-accent)', width: '6px', height: '6px' }} />
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{displayName}</h3>
+        </div>
+        <CallButton dmThreadId={currentThread.id} />
       </div>
 
       {/* Messages */}

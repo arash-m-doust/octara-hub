@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.notifications',
     'apps.search',
     'apps.admin_panel',
+    'apps.calls',
 ]
 
 MIDDLEWARE = [

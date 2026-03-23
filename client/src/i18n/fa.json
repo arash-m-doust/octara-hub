@@ -83,6 +83,26 @@
     "auditLogs": "گزارش عملیات",
     "stats": "آمار"
   },
+  "call": {
+    "voice": "تماس صوتی",
+    "video": "تماس تصویری",
+    "voiceCall": "تماس صوتی",
+    "videoCall": "تماس تصویری",
+    "startVoice": "شروع تماس صوتی",
+    "startVideo": "شروع تماس تصویری",
+    "endCall": "پایان تماس",
+    "mute": "بی‌صدا",
+    "unmute": "فعال کردن صدا",
+    "cameraOn": "روشن کردن دوربین",
+    "cameraOff": "خاموش کردن دوربین",
+    "accept": "پاسخ",
+    "decline": "رد تماس",
+    "incomingVoice": "تماس صوتی ورودی...",
+    "incomingVideo": "تماس تصویری ورودی...",
+    "connecting": "در حال اتصال...",
+    "participants": "شرکت‌کننده",
+    "minimize": "کوچک کردن"
+  },
   "common": {
     "save": "ذخیره",
     "cancel": "لغو",
