@@ -6,6 +6,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { realtime } from '@/realtime/connection'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
+import { PinnedBanner } from './PinnedBanner'
 import type { Message } from '@/api/messages'
 import { Pin, Users, FolderOpen, Search } from 'lucide-react'
 import { CallButton } from '@/components/call/CallButton'
@@ -13,25 +14,34 @@ import { CallButton } from '@/components/call/CallButton'
 export function ChatView() {
   const { t } = useTranslation()
   const { currentChannel } = useWorkspaceStore()
-  const { fetchMessages, addMessage, clear } = useMessageStore()
+  const { fetchMessages, addMessage, fetchPinnedMessages, clear } = useMessageStore()
   const { toggleRightPanel } = useUIStore()
 
   useEffect(() => {
     if (!currentChannel) return
     fetchMessages(currentChannel.id)
+    fetchPinnedMessages(currentChannel.id)
 
-    const unsub = realtime.on('message.created', (data: unknown) => {
-      const { message } = data as { message: Message }
-      if (message.channel === currentChannel.id) {
-        addMessage(message)
-      }
-    })
+    const unsubs = [
+      realtime.on('message.created', (data: unknown) => {
+        const { message } = data as { message: Message }
+        if (message.channel === currentChannel.id) {
+          addMessage(message)
+        }
+      }),
+      realtime.on('message.pinned', () => {
+        if (currentChannel) fetchPinnedMessages(currentChannel.id)
+      }),
+      realtime.on('message.unpinned', () => {
+        if (currentChannel) fetchPinnedMessages(currentChannel.id)
+      }),
+    ]
 
     return () => {
-      unsub()
+      unsubs.forEach((u) => u())
       clear()
     }
-  }, [currentChannel?.id, fetchMessages, addMessage, clear])
+  }, [currentChannel?.id, fetchMessages, fetchPinnedMessages, addMessage, clear])
 
   if (!currentChannel) return null
 
@@ -73,6 +83,9 @@ export function ChatView() {
           </button>
         </div>
       </div>
+
+      {/* Pinned message banner */}
+      <PinnedBanner />
 
       {/* Messages */}
       <MessageList />

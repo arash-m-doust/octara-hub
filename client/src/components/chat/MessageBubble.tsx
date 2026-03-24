@@ -12,6 +12,7 @@ import {
   Music, FileSpreadsheet, FileCode, Archive,
   Reply, Pin, Pencil, Trash2, MoreHorizontal
 } from 'lucide-react'
+import type { PinnedMessage } from '@/stores/messageStore'
 
 interface MessageBubbleProps {
   message: Message
@@ -140,8 +141,9 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
 export function MessageBubble({ message }: MessageBubbleProps) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
-  const { setReplyTo, editMessage, deleteMessage, addReaction, pinMessage } = useMessageStore()
+  const { setReplyTo, editMessage, deleteMessage, addReaction, pinMessage, unpinMessage, pinnedMessages } = useMessageStore()
   const { currentChannel } = useWorkspaceStore()
+  const isPinned = pinnedMessages.some((p) => p.message.id === message.id)
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const isOwn = user?.id === message.user.id
@@ -164,7 +166,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   const menuItems = [
     { label: t('chat.reply'), icon: '↩', onClick: () => setReplyTo(message) },
-    { label: t('chat.pin'), icon: '📌', onClick: () => { if (currentChannel) pinMessage(currentChannel.id, message.id) } },
+    {
+      label: isPinned ? t('chat.unpin') : t('chat.pin'),
+      icon: isPinned ? '📍' : '📌',
+      onClick: () => {
+        if (!currentChannel) return
+        if (isPinned) unpinMessage(currentChannel.id, message.id)
+        else pinMessage(currentChannel.id, message.id)
+      },
+    },
     ...(isOwn || user?.is_superuser
       ? [
           ...(isOwn ? [{ label: t('chat.edit'), icon: '✏', onClick: () => { setEditing(true); setEditContent(message.content) } }] : []),
@@ -201,6 +211,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
             {format(new Date(message.created_at), 'HH:mm')}
           </span>
+          {isPinned && (
+            <Pin size={10} style={{ color: 'var(--color-accent)', transform: 'rotate(45deg)' }} />
+          )}
           {message.is_edited && (
             <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{t('chat.edited')}</span>
           )}

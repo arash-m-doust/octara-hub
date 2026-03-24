@@ -7,14 +7,10 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { MessageSquare, Plus, Settings, LogOut, Menu, Shield } from 'lucide-react'
+import { MessageSquare, Plus, Settings, LogOut, Menu } from 'lucide-react'
 import { SettingsPanel } from '@/components/settings/SettingsPanel'
 
-interface TopBarProps {
-  onAdminClick?: () => void
-}
-
-export function TopBar({ onAdminClick }: TopBarProps) {
+export function TopBar() {
   const { t } = useTranslation()
   const { workspaces, currentWorkspace, setCurrentWorkspace, createWorkspace } = useWorkspaceStore()
   const { view, setView, isMobileMenuOpen, setMobileMenuOpen } = useUIStore()
@@ -124,15 +120,6 @@ export function TopBar({ onAdminClick }: TopBarProps) {
 
         {/* Right Controls */}
         <div className="flex items-center gap-1 ms-2">
-          {user?.is_superuser && onAdminClick && (
-            <button
-              onClick={onAdminClick}
-              className="w-8 h-8 flex items-center justify-center rounded-ind ind-button p-0"
-              title="Admin Panel"
-            >
-              <Shield size={14} className="text-accent" />
-            </button>
-          )}
           <button
             onClick={() => setShowSettings(true)}
             className="w-8 h-8 flex items-center justify-center rounded-ind ind-button p-0"

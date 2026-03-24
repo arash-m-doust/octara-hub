@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import { realtime } from '@/realtime/connection'
@@ -9,7 +9,6 @@ import { StatusBar } from './StatusBar'
 import { ChannelSidebar } from './ChannelSidebar'
 import { MainPanel } from './MainPanel'
 import { RightPanel } from './RightPanel'
-import { AdminPanel } from '@/components/admin/AdminPanel'
 import { CallOverlay } from '@/components/call/CallOverlay'
 import { IncomingCallModal } from '@/components/call/IncomingCallModal'
 
@@ -21,7 +20,6 @@ export function AppShell() {
     setIncomingCall, handleSignal, handleParticipantJoined,
     handleParticipantLeft, handleCallEnded,
   } = useCallStore()
-  const [showAdmin, setShowAdmin] = useState(false)
 
   useEffect(() => { fetchWorkspaces() }, [fetchWorkspaces])
   useEffect(() => {
@@ -71,7 +69,7 @@ export function AppShell() {
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }}>
       {/* Top Bar */}
-      <TopBar onAdminClick={user?.is_superuser ? () => setShowAdmin(true) : undefined} />
+      <TopBar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -104,11 +102,6 @@ export function AppShell() {
 
       {/* Status Bar */}
       <StatusBar />
-
-      {/* Admin Panel Modal */}
-      {user?.is_superuser && (
-        <AdminPanel isOpen={showAdmin} onClose={() => setShowAdmin(false)} />
-      )}
 
       {/* Call Overlay & Incoming Call */}
       <CallOverlay />

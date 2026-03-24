@@ -1,5 +1,13 @@
 import { create } from 'zustand'
 import { messageApi, type Message } from '@/api/messages'
+import { extractResults } from '@/api/client'
+
+export interface PinnedMessage {
+  id: number
+  message: Message
+  pinned_by?: number
+  created_at: string
+}
 
 interface MessageState {
   messages: Message[]
@@ -7,6 +15,8 @@ interface MessageState {
   hasMore: boolean
   nextCursor: string | null
   replyTo: Message | null
+  pinnedMessages: PinnedMessage[]
+  currentPinIndex: number
 
   fetchMessages: (channelId: number) => Promise<void>
   loadMore: (channelId: number) => Promise<void>
@@ -17,6 +27,8 @@ interface MessageState {
   removeReaction: (channelId: number, messageId: number, emoji: string) => Promise<void>
   pinMessage: (channelId: number, messageId: number) => Promise<void>
   unpinMessage: (channelId: number, messageId: number) => Promise<void>
+  fetchPinnedMessages: (channelId: number) => Promise<void>
+  cyclePinIndex: (direction: 'next' | 'prev') => void
   setReplyTo: (msg: Message | null) => void
   addMessage: (msg: Message) => void
   clear: () => void
@@ -37,6 +49,8 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   hasMore: false,
   nextCursor: null,
   replyTo: null,
+  pinnedMessages: [],
+  currentPinIndex: 0,
 
   fetchMessages: async (channelId) => {
     set({ isLoading: true, messages: [], hasMore: false, nextCursor: null })
@@ -112,10 +126,32 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
   pinMessage: async (channelId, messageId) => {
     await messageApi.pin(channelId, messageId)
+    await get().fetchPinnedMessages(channelId)
   },
 
   unpinMessage: async (channelId, messageId) => {
     await messageApi.unpin(channelId, messageId)
+    await get().fetchPinnedMessages(channelId)
+  },
+
+  fetchPinnedMessages: async (channelId) => {
+    try {
+      const res = await messageApi.pinnedMessages(channelId)
+      const items = extractResults(res as unknown as PinnedMessage[])
+      set({ pinnedMessages: Array.isArray(items) ? items : [], currentPinIndex: 0 })
+    } catch {
+      set({ pinnedMessages: [], currentPinIndex: 0 })
+    }
+  },
+
+  cyclePinIndex: (direction) => {
+    const { pinnedMessages, currentPinIndex } = get()
+    if (pinnedMessages.length === 0) return
+    if (direction === 'next') {
+      set({ currentPinIndex: (currentPinIndex + 1) % pinnedMessages.length })
+    } else {
+      set({ currentPinIndex: (currentPinIndex - 1 + pinnedMessages.length) % pinnedMessages.length })
+    }
   },
 
   setReplyTo: (msg) => set({ replyTo: msg }),
@@ -126,5 +162,5 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     return { messages: [...s.messages, msg] }
   }),
 
-  clear: () => set({ messages: [], hasMore: false, nextCursor: null, replyTo: null }),
+  clear: () => set({ messages: [], hasMore: false, nextCursor: null, replyTo: null, pinnedMessages: [], currentPinIndex: 0 }),
 }))

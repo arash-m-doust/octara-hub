@@ -117,13 +117,22 @@ class PinView(APIView):
     def post(self, request, channel_id, message_id):
         if PinnedMessage.objects.filter(message_id=message_id, channel_id=channel_id).exists():
             return Response({'detail': 'Already pinned.'}, status=400)
-        PinnedMessage.objects.create(
+        pin = PinnedMessage.objects.create(
             message_id=message_id, channel_id=channel_id, pinned_by=request.user,
         )
-        return Response({'detail': 'Pinned.'}, status=201)
+        publish_event(f'channel_{channel_id}', 'message.pinned', {
+            'message_id': message_id,
+            'channel_id': channel_id,
+            'pinned_by': request.user.id,
+        })
+        return Response(PinnedMessageSerializer(pin).data, status=201)
 
     def delete(self, request, channel_id, message_id):
         PinnedMessage.objects.filter(message_id=message_id, channel_id=channel_id).delete()
+        publish_event(f'channel_{channel_id}', 'message.unpinned', {
+            'message_id': message_id,
+            'channel_id': channel_id,
+        })
         return Response(status=204)
 
 

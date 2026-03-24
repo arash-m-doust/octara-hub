@@ -2,6 +2,16 @@ import { create } from 'zustand'
 import * as callsApi from '@/api/calls'
 import type { CallSession } from '@/api/calls'
 
+function getMyUserId(): number | null {
+  try {
+    const token = localStorage.getItem('access_token')
+    if (!token) return null
+    return JSON.parse(atob(token.split('.')[1])).user_id
+  } catch {
+    return null
+  }
+}
+
 interface CallState {
   // Active call state
   activeCall: CallSession | null
@@ -13,6 +23,7 @@ interface CallState {
   isVideoOff: boolean
   callDuration: number
   durationInterval: ReturnType<typeof setInterval> | null
+  mediaError: string | null
 
   // Actions
   startCall: (params: { channel_id?: number; dm_thread_id?: number; call_type: 'voice' | 'video' }) => Promise<void>
@@ -30,6 +41,8 @@ interface CallState {
   handleParticipantLeft: (data: { call_id: number; user_id: number }) => void
   handleCallEnded: (data: { call_id: number }) => void
   cleanup: () => void
+  clearMediaError: () => void
+  createPeerConnection: (userId: number, createOffer: boolean, stream: MediaStream) => Promise<RTCPeerConnection | null>
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -49,18 +62,28 @@ export const useCallStore = create<CallState>((set, get) => ({
   isVideoOff: false,
   callDuration: 0,
   durationInterval: null,
+  mediaError: null,
 
   startCall: async (params) => {
     try {
+      set({ mediaError: null })
       const isVideo = params.call_type === 'video'
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: isVideo,
-      })
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: isVideo,
+        })
+      } catch (mediaErr) {
+        const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
+          ? 'Camera/microphone access denied. Please allow access in your browser settings.'
+          : 'Could not access camera/microphone. Please check your device.'
+        set({ mediaError: msg })
+        return
+      }
 
       const call = await callsApi.startCall(params)
 
-      // Start duration timer
       const interval = setInterval(() => {
         set((s) => ({ callDuration: s.callDuration + 1 }))
       }, 1000)
@@ -80,13 +103,23 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   joinCall: async (callId) => {
     try {
+      set({ mediaError: null })
       const call = await callsApi.joinCall(callId)
       const isVideo = call.call_type === 'video'
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: isVideo,
-      })
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: isVideo,
+        })
+      } catch (mediaErr) {
+        const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
+          ? 'Camera/microphone access denied. Please allow access in your browser settings.'
+          : 'Could not access camera/microphone. Please check your device.'
+        set({ mediaError: msg })
+        return
+      }
 
       const interval = setInterval(() => {
         set((s) => ({ callDuration: s.callDuration + 1 }))
@@ -102,10 +135,10 @@ export const useCallStore = create<CallState>((set, get) => ({
         durationInterval: interval,
       })
 
-      // Create peer connections for existing participants
-      const myUserId = JSON.parse(atob(localStorage.getItem('access_token')!.split('.')[1])).user_id
+      // Create peer connections for existing participants and send offers
+      const myUserId = getMyUserId()
       for (const p of call.participants) {
-        if (p.user.id !== Number(myUserId) && !p.left_at) {
+        if (p.user.id !== myUserId && !p.left_at) {
           await get().createPeerConnection(p.user.id, true, stream)
         }
       }
@@ -152,7 +185,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (!localStream || !activeCall) return
 
     localStream.getAudioTracks().forEach((t) => {
-      t.enabled = isMuted // toggle: if muted, enable; if unmuted, disable
+      t.enabled = isMuted
     })
 
     const newMuted = !isMuted
@@ -165,7 +198,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (!localStream || !activeCall) return
 
     localStream.getVideoTracks().forEach((t) => {
-      t.enabled = isVideoOff // toggle
+      t.enabled = isVideoOff
     })
 
     const newVideoOff = !isVideoOff
@@ -175,16 +208,33 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   setIncomingCall: (call) => set({ incomingCall: call }),
   setActiveCall: (call) => set({ activeCall: call }),
+  clearMediaError: () => set({ mediaError: null }),
 
   handleSignal: async (data) => {
     const { activeCall, localStream, peerConnections } = get()
-    if (!activeCall || activeCall.id !== data.call_id) return
+    if (!activeCall || activeCall.id !== data.call_id || !localStream) return
 
     const fromUserId = data.from_user_id
+    const myUserId = getMyUserId()
 
     if (data.type === 'offer') {
-      // Create a peer connection if we don't have one
-      const pc = await get().createPeerConnection(fromUserId, false, localStream!)
+      const existingPc = peerConnections.get(fromUserId)
+
+      // Polite peer collision handling:
+      // If we already sent an offer (have a PC with localDescription type=offer),
+      // the user with the HIGHER ID yields and accepts the incoming offer.
+      if (existingPc && existingPc.localDescription?.type === 'offer') {
+        if (myUserId != null && myUserId > fromUserId) {
+          // We are "impolite" — ignore their offer, keep ours
+          return
+        }
+        // We are "polite" — close our PC, accept their offer
+        existingPc.close()
+        peerConnections.delete(fromUserId)
+        set({ peerConnections: new Map(peerConnections) })
+      }
+
+      const pc = await get().createPeerConnection(fromUserId, false, localStream)
       if (!pc) return
 
       await pc.setRemoteDescription(new RTCSessionDescription(data.payload as RTCSessionDescriptionInit))
@@ -198,12 +248,12 @@ export const useCallStore = create<CallState>((set, get) => ({
       })
     } else if (data.type === 'answer') {
       const pc = peerConnections.get(fromUserId)
-      if (pc) {
+      if (pc && pc.signalingState === 'have-local-offer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data.payload as RTCSessionDescriptionInit))
       }
     } else if (data.type === 'ice-candidate') {
       const pc = peerConnections.get(fromUserId)
-      if (pc) {
+      if (pc && pc.remoteDescription) {
         await pc.addIceCandidate(new RTCIceCandidate(data.payload as RTCIceCandidateInit))
       }
     }
@@ -214,7 +264,13 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (!activeCall || activeCall.id !== data.call_id || !localStream) return
 
     const user = data.user as { id: number }
-    // The new participant will send an offer, so we wait for signal
+    const myUserId = getMyUserId()
+    if (user.id === myUserId) return
+
+    // Proactively create peer connection and send offer to the new participant.
+    // Both sides will attempt to connect; the polite peer collision handler
+    // in handleSignal resolves any offer/offer race condition.
+    await get().createPeerConnection(user.id, true, localStream)
   },
 
   handleParticipantLeft: (data) => {
@@ -235,7 +291,6 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (activeCall && activeCall.id === data.call_id) {
       get().cleanup()
     }
-    // Also clear incoming if it matches
     const { incomingCall } = get()
     if (incomingCall && incomingCall.id === data.call_id) {
       set({ incomingCall: null })
@@ -245,10 +300,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   cleanup: () => {
     const { localStream, peerConnections, durationInterval } = get()
 
-    // Stop all tracks
     localStream?.getTracks().forEach((t) => t.stop())
-
-    // Close all peer connections
     peerConnections.forEach((pc) => pc.close())
 
     if (durationInterval) clearInterval(durationInterval)
@@ -265,10 +317,24 @@ export const useCallStore = create<CallState>((set, get) => ({
     })
   },
 
-  // Helper: not in the interface, but used internally
   createPeerConnection: async (userId: number, createOffer: boolean, stream: MediaStream) => {
     const { activeCall, peerConnections, remoteStreams } = get()
     if (!activeCall) return null
+
+    // If we already have a connected/connecting PC for this user, skip
+    const existingPc = peerConnections.get(userId)
+    if (existingPc && !createOffer) {
+      // Reuse for incoming offer handling — close old one first
+      existingPc.close()
+      peerConnections.delete(userId)
+    } else if (existingPc && createOffer) {
+      // Already have a PC and want to create offer — check state
+      if (existingPc.connectionState === 'connected' || existingPc.connectionState === 'connecting') {
+        return existingPc
+      }
+      existingPc.close()
+      peerConnections.delete(userId)
+    }
 
     const pc = new RTCPeerConnection(ICE_SERVERS)
 
@@ -281,15 +347,17 @@ export const useCallStore = create<CallState>((set, get) => ({
     pc.ontrack = (event) => {
       const remote = event.streams[0]
       if (remote) {
-        remoteStreams.set(userId, remote)
-        set({ remoteStreams: new Map(remoteStreams) })
+        const streams = get().remoteStreams
+        streams.set(userId, remote)
+        set({ remoteStreams: new Map(streams) })
       }
     }
 
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
-      if (event.candidate && activeCall) {
-        callsApi.sendSignal(activeCall.id, {
+      const call = get().activeCall
+      if (event.candidate && call) {
+        callsApi.sendSignal(call.id, {
           type: 'ice-candidate',
           payload: event.candidate.toJSON(),
           target_user_id: userId,
@@ -300,9 +368,11 @@ export const useCallStore = create<CallState>((set, get) => ({
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         pc.close()
-        peerConnections.delete(userId)
-        remoteStreams.delete(userId)
-        set({ peerConnections: new Map(peerConnections), remoteStreams: new Map(remoteStreams) })
+        const pcs = get().peerConnections
+        const rs = get().remoteStreams
+        pcs.delete(userId)
+        rs.delete(userId)
+        set({ peerConnections: new Map(pcs), remoteStreams: new Map(rs) })
       }
     }
 
@@ -321,4 +391,4 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     return pc
   },
-} as CallState & { createPeerConnection: (userId: number, createOffer: boolean, stream: MediaStream) => Promise<RTCPeerConnection | null> }))
+}))
