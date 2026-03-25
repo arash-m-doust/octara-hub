@@ -69,17 +69,32 @@ export const useCallStore = create<CallState>((set, get) => ({
       set({ mediaError: null })
       const isVideo = params.call_type === 'video'
       let stream: MediaStream
+      let videoFallback = false
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: isVideo,
         })
       } catch (mediaErr) {
-        const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
-          ? 'Camera/microphone access denied. Please allow access in your browser settings.'
-          : 'Could not access camera/microphone. Please check your device.'
-        set({ mediaError: msg })
-        return
+        // If video was requested but failed, fall back to audio-only
+        if (isVideo) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            videoFallback = true
+          } catch (audioErr) {
+            const msg = audioErr instanceof DOMException && audioErr.name === 'NotAllowedError'
+              ? 'Microphone access denied. Please allow access in your browser settings.'
+              : 'Could not access microphone. Please check your device.'
+            set({ mediaError: msg })
+            return
+          }
+        } else {
+          const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
+            ? 'Microphone access denied. Please allow access in your browser settings.'
+            : 'Could not access microphone. Please check your device.'
+          set({ mediaError: msg })
+          return
+        }
       }
 
       const call = await callsApi.startCall(params)
@@ -92,7 +107,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         activeCall: call,
         localStream: stream,
         isMuted: false,
-        isVideoOff: !isVideo,
+        isVideoOff: !isVideo || videoFallback,
         callDuration: 0,
         durationInterval: interval,
       })
@@ -108,17 +123,32 @@ export const useCallStore = create<CallState>((set, get) => ({
       const isVideo = call.call_type === 'video'
 
       let stream: MediaStream
+      let videoFallback = false
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: isVideo,
         })
       } catch (mediaErr) {
-        const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
-          ? 'Camera/microphone access denied. Please allow access in your browser settings.'
-          : 'Could not access camera/microphone. Please check your device.'
-        set({ mediaError: msg })
-        return
+        // If video was requested but failed, fall back to audio-only
+        if (isVideo) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            videoFallback = true
+          } catch (audioErr) {
+            const msg = audioErr instanceof DOMException && audioErr.name === 'NotAllowedError'
+              ? 'Microphone access denied. Please allow access in your browser settings.'
+              : 'Could not access microphone. Please check your device.'
+            set({ mediaError: msg })
+            return
+          }
+        } else {
+          const msg = mediaErr instanceof DOMException && mediaErr.name === 'NotAllowedError'
+            ? 'Microphone access denied. Please allow access in your browser settings.'
+            : 'Could not access microphone. Please check your device.'
+          set({ mediaError: msg })
+          return
+        }
       }
 
       const interval = setInterval(() => {
@@ -130,7 +160,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         incomingCall: null,
         localStream: stream,
         isMuted: false,
-        isVideoOff: !isVideo,
+        isVideoOff: !isVideo || videoFallback,
         callDuration: 0,
         durationInterval: interval,
       })

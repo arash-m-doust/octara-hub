@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useUIStore } from '@/stores/uiStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useAuthStore } from '@/stores/authStore'
+import { useDMStore } from '@/stores/dmStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { useTranslation } from 'react-i18next'
 import { fileApi, type Attachment } from '@/api/files'
@@ -10,7 +12,7 @@ import { extractResults } from '@/api/client'
 import { Pin as PinIcon } from 'lucide-react'
 import {
   X, Download, Search, FileText, Image, Film, Music,
-  FileSpreadsheet, FileCode, Archive, File, Loader2
+  FileSpreadsheet, FileCode, Archive, File, Loader2, MessageSquare
 } from 'lucide-react'
 
 function formatFileSize(bytes: number): string {
@@ -67,8 +69,21 @@ function FileItem({ file }: { file: Attachment }) {
 
 export function RightPanel() {
   const { t } = useTranslation()
-  const { rightPanel, setRightPanel, searchQuery, setSearchQuery } = useUIStore()
+  const { rightPanel, setRightPanel, setView, searchQuery, setSearchQuery } = useUIStore()
   const { members, currentChannel } = useWorkspaceStore()
+  const currentUser = useAuthStore((s) => s.user)
+  const { createThread, setCurrentThread, fetchThreads } = useDMStore()
+
+  const handleOpenDM = async (userId: number) => {
+    try {
+      const thread = await createThread([userId])
+      await fetchThreads()
+      setCurrentThread(thread)
+      setView('dm')
+    } catch (err) {
+      console.error('Failed to open DM:', err)
+    }
+  }
   const [files, setFiles] = useState<Attachment[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<Message[]>([])
@@ -140,13 +155,13 @@ export function RightPanel() {
         {rightPanel === 'members' && (
           <div className="space-y-1">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors">
+              <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors group">
                 <Avatar
                   name={m.user.profile?.display_name || m.user.username}
                   size="sm"
                   status={m.user.profile?.status}
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
                     {m.nickname || m.user.profile?.display_name || m.user.username}
                   </div>
@@ -154,6 +169,16 @@ export function RightPanel() {
                     <div className="text-[10px] text-muted">{m.role.name}</div>
                   )}
                 </div>
+                {currentUser && m.user.id !== currentUser.id && (
+                  <button
+                    onClick={() => handleOpenDM(m.user.id)}
+                    className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-ind ind-button p-0 transition-opacity"
+                    style={{ color: 'var(--color-accent)' }}
+                    title={t('dm.sendMessage')}
+                  >
+                    <MessageSquare size={12} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
