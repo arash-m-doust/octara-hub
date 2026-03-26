@@ -223,14 +223,57 @@ export const useCallStore = create<CallState>((set, get) => ({
     callsApi.toggleMedia(activeCall.id, { is_muted: newMuted })
   },
 
-  toggleVideo: () => {
-    const { localStream, isVideoOff, activeCall } = get()
+  toggleVideo: async () => {
+    const { localStream, isVideoOff, activeCall, peerConnections } = get()
     if (!localStream || !activeCall) return
 
-    localStream.getVideoTracks().forEach((t) => {
+    const videoTracks = localStream.getVideoTracks()
+
+    if (isVideoOff && videoTracks.length === 0) {
+      // No video track yet (started as voice call) — acquire camera
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        const videoTrack = videoStream.getVideoTracks()[0]
+        localStream.addTrack(videoTrack)
+
+        // Add video track to all peer connections
+        peerConnections.forEach((pc) => {
+          pc.addTrack(videoTrack, localStream)
+        })
+
+        set({ isVideoOff: false })
+        callsApi.toggleMedia(activeCall.id, { is_video_off: false })
+      } catch {
+        set({ mediaError: 'Could not access camera. Please check your device.' })
+      }
+      return
+    }
+
+    if (!isVideoOff && videoTracks.length > 0) {
+      // Turn off camera — stop and remove track
+      videoTracks.forEach((t) => {
+        t.stop()
+        localStream.removeTrack(t)
+      })
+
+      // Remove video track from peer connections by replacing senders
+      peerConnections.forEach((pc) => {
+        pc.getSenders().forEach((sender) => {
+          if (sender.track?.kind === 'video') {
+            pc.removeTrack(sender)
+          }
+        })
+      })
+
+      set({ isVideoOff: true })
+      callsApi.toggleMedia(activeCall.id, { is_video_off: true })
+      return
+    }
+
+    // Fallback: simple enable/disable toggle
+    videoTracks.forEach((t) => {
       t.enabled = isVideoOff
     })
-
     const newVideoOff = !isVideoOff
     set({ isVideoOff: newVideoOff })
     callsApi.toggleMedia(activeCall.id, { is_video_off: newVideoOff })

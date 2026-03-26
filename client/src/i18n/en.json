@@ -57,7 +57,8 @@
     "title": "Direct Messages",
     "new": "New Message",
     "groupDm": "Group DM",
-    "selectUsers": "Select users"
+    "selectUsers": "Select users",
+    "sendMessage": "Send Message"
   },
   "files": {
     "upload": "Upload File",
@@ -84,6 +85,8 @@
     "stats": "Statistics"
   },
   "call": {
+    "join": "Join Call",
+    "inCall": "IN CALL",
     "voice": "Voice Call",
     "video": "Video Call",
     "voiceCall": "VOICE CALL",

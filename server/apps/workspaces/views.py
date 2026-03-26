@@ -78,6 +78,12 @@ class JoinWorkspaceView(APIView):
         )
         if not created:
             return Response({'detail': 'Already a member.'}, status=400)
+
+        # Auto-add new member to all public channels in this workspace
+        public_channels = Channel.objects.filter(workspace=workspace, is_private=False, is_archived=False)
+        for channel in public_channels:
+            ChannelMember.objects.get_or_create(channel=channel, user=request.user)
+
         return Response(WorkspaceSerializer(workspace, context={'request': request}).data, status=201)
 
 

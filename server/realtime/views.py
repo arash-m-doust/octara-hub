@@ -1,9 +1,7 @@
 import json
 import time
-from django.http import StreamingHttpResponse
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.http import StreamingHttpResponse, JsonResponse
+from django.views import View
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth.models import User
@@ -13,33 +11,25 @@ from apps.dm.models import DMParticipant
 from .sse import subscribe, unsubscribe
 
 
-class SSETokenAuthentication(JWTAuthentication):
-    """Custom auth that reads JWT from query param for EventSource (which can't send headers)."""
-
-    def authenticate(self, request):
-        # First try the standard header-based auth
-        result = super().authenticate(request)
-        if result:
-            return result
-
-        # Fall back to query parameter
-        token = request.query_params.get('token')
-        if not token:
-            return None
-        try:
-            validated = AccessToken(token)
-            user = User.objects.get(id=validated['user_id'])
-            return (user, validated)
-        except (TokenError, User.DoesNotExist):
-            return None
+def authenticate_from_token(request):
+    """Authenticate user from query param JWT token (EventSource can't send headers)."""
+    token = request.GET.get('token')
+    if not token:
+        return None
+    try:
+        validated = AccessToken(token)
+        return User.objects.get(id=validated['user_id'])
+    except (TokenError, User.DoesNotExist):
+        return None
 
 
-class SSEEventStreamView(APIView):
-    authentication_classes = [SSETokenAuthentication]
-    permission_classes = [IsAuthenticated]
+class SSEEventStreamView(View):
+    """SSE endpoint using plain Django View to avoid DRF content negotiation (406)."""
 
     def get(self, request):
-        user = request.user
+        user = authenticate_from_token(request)
+        if not user:
+            return JsonResponse({'detail': 'Authentication required.'}, status=401)
 
         # Determine channels to subscribe to
         channels = []

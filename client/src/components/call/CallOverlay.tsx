@@ -1,11 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCallStore } from '@/stores/callStore'
 import {
   Phone, PhoneOff, Mic, MicOff, Video, VideoOff,
-  Monitor, Maximize2, Minimize2
+  Maximize2, Minimize2
 } from 'lucide-react'
-import { useState } from 'react'
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -26,12 +25,12 @@ export function CallOverlay() {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream
     }
-  }, [localStream])
+  }, [localStream, isVideoOff])
 
   if (!activeCall) return null
 
-  const isVideo = activeCall.call_type === 'video'
   const participantCount = activeCall.participants?.filter((p) => !p.left_at).length || 1
+  const hasVideo = !isVideoOff || Array.from(remoteStreams.values()).some((s) => s.getVideoTracks().length > 0)
 
   if (isMinimized) {
     return (
@@ -54,7 +53,7 @@ export function CallOverlay() {
           />
           <div>
             <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {isVideo ? t('call.video') : t('call.voice')}
+              {t('call.inCall')}
             </span>
             <span className="text-xs ms-2" style={{ color: 'var(--color-accent)' }}>
               {formatDuration(callDuration)}
@@ -94,7 +93,7 @@ export function CallOverlay() {
             />
             <div>
               <span className="ind-label">
-                {isVideo ? t('call.videoCall') : t('call.voiceCall')}
+                {t('call.inCall')}
               </span>
             </div>
           </div>
@@ -123,7 +122,7 @@ export function CallOverlay() {
             boxShadow: 'inset 0 2px 8px var(--color-metal-shadow)',
           }}
         >
-          {isVideo ? (
+          {hasVideo ? (
             <div className="w-full h-full flex flex-wrap items-center justify-center gap-3 p-4">
               {/* Remote streams */}
               {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
@@ -168,7 +167,7 @@ export function CallOverlay() {
               )}
             </div>
           ) : (
-            /* Voice-only call: show participant avatars with audio visualization */
+            /* Voice-only call: show participant avatars */
             <div className="flex flex-col items-center gap-6 py-8">
               <div className="flex items-center gap-6 flex-wrap justify-center">
                 {activeCall.participants?.filter((p) => !p.left_at).map((p) => (
@@ -210,26 +209,24 @@ export function CallOverlay() {
             {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
           </button>
 
-          {/* Video toggle (only for video calls) */}
-          {isVideo && (
-            <button
-              onClick={toggleVideo}
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
-              style={{
-                background: isVideoOff
-                  ? 'linear-gradient(180deg, var(--color-led-dnd) 0%, #c62828 100%)'
-                  : 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
-                border: `1px solid ${isVideoOff ? '#c62828' : 'var(--color-border)'}`,
-                boxShadow: isVideoOff
-                  ? '0 0 12px rgba(255,82,82,0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
-                  : 'inset 0 1px 0 var(--color-metal-highlight), 0 2px 4px var(--color-metal-shadow)',
-                color: isVideoOff ? '#fff' : 'var(--color-text-primary)',
-              }}
-              title={isVideoOff ? t('call.cameraOn') : t('call.cameraOff')}
-            >
-              {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
-            </button>
-          )}
+          {/* Video toggle — always available (Discord-style) */}
+          <button
+            onClick={toggleVideo}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-all"
+            style={{
+              background: isVideoOff
+                ? 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)'
+                : 'linear-gradient(180deg, var(--color-led-online) 0%, #2e7d32 100%)',
+              border: `1px solid ${isVideoOff ? 'var(--color-border)' : '#2e7d32'}`,
+              boxShadow: isVideoOff
+                ? 'inset 0 1px 0 var(--color-metal-highlight), 0 2px 4px var(--color-metal-shadow)'
+                : '0 0 12px rgba(76,175,80,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+              color: isVideoOff ? 'var(--color-text-primary)' : '#fff',
+            }}
+            title={isVideoOff ? t('call.cameraOn') : t('call.cameraOff')}
+          >
+            {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+          </button>
 
           {/* End call button */}
           <button
