@@ -1,3 +1,12 @@
+"""Direct Message (DM) APIs.
+
+Highlights:
+- 1:1 thread creation is idempotent
+- messages are paginated by cursor
+- realtime emits both thread-level and user-level events
+  so recipients discover new threads instantly
+"""
+
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -81,16 +90,29 @@ class DMMessageListView(generics.ListCreateAPIView):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Not a participant.')
         message = serializer.save(user=self.request.user, dm_thread_id=thread_id)
-        # Update thread timestamp
+        # Keep thread ordering fresh in conversation sidebar.
         DMThread.objects.filter(id=thread_id).update(updated_at=message.created_at)
-        # Update last_read
+        # Sender immediately marks the new message as read for self.
         DMParticipant.objects.filter(
             thread_id=thread_id, user=self.request.user
         ).update(last_read_message_id=message.id)
-        # Publish to all participants
+        serialized_message = MessageSerializer(message, context={'request': self.request}).data
+
+        # Publish to participants currently subscribed to this DM thread.
         publish_event(f'dm_{thread_id}', 'message.created', {
-            'message': MessageSerializer(message, context={'request': self.request}).data,
+            'message': serialized_message,
         })
+
+        # Also publish to user-scoped channels. This guarantees recipient
+        # thread discovery even if they subscribed before thread existed.
+        recipient_ids = DMParticipant.objects.filter(
+            thread_id=thread_id,
+        ).exclude(user=self.request.user).values_list('user_id', flat=True)
+        for user_id in recipient_ids:
+            publish_event(f'user_{user_id}', 'dm.message.created', {
+                'thread_id': thread_id,
+                'message': serialized_message,
+            })
         self._created_message = message
 
     def create(self, request, *args, **kwargs):

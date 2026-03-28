@@ -18,8 +18,10 @@ export function TopBar() {
   const [showCreate, setShowCreate] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [newName, setNewName] = useState('')
+  const canCreateWorkspace = !!user && (user.is_superuser || user.is_staff)
 
   const handleCreate = async () => {
+    if (!canCreateWorkspace) return
     if (!newName.trim()) return
     const ws = await createWorkspace({ name: newName.trim() })
     setCurrentWorkspace(ws)
@@ -109,13 +111,15 @@ export function TopBar() {
           })}
 
           {/* Add Workspace */}
-          <button
-            onClick={() => setShowCreate(true)}
-            className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-ind ind-button p-0"
-            title={t('workspace.create')}
-          >
-            <Plus size={14} className="text-accent" />
-          </button>
+          {canCreateWorkspace && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-ind ind-button p-0"
+              title={t('workspace.create')}
+            >
+              <Plus size={14} className="text-accent" />
+            </button>
+          )}
         </div>
 
         {/* Right Controls */}
@@ -144,7 +148,7 @@ export function TopBar() {
 
       <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title={t('workspace.create')}>
+      <Modal isOpen={showCreate && canCreateWorkspace} onClose={() => setShowCreate(false)} title={t('workspace.create')}>
         <div className="space-y-4">
           <Input
             label={t('workspace.name')}

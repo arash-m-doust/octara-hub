@@ -18,12 +18,25 @@ export interface User {
   }
 }
 
+export interface PlatformUser {
+  id: number
+  username: string
+  profile: {
+    display_name: string
+    avatar_path: string
+    status: 'online' | 'idle' | 'dnd' | 'offline'
+  }
+}
+
 export const authApi = {
   register: (data: { username: string; email: string; password: string; password_confirm: string; display_name?: string }) =>
     api<User>('/auth/register/', { method: 'POST', body: data }),
 
   login: (data: { username: string; password: string }) =>
     api<{ access: string; refresh: string }>('/auth/login/', { method: 'POST', body: data }),
+
+  users: (q?: string) =>
+    api<PlatformUser[]>(`/auth/users/${q ? `?q=${encodeURIComponent(q)}` : ''}`),
 
   me: () => api<User>('/auth/me/'),
 

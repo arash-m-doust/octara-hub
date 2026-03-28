@@ -1,3 +1,5 @@
+import { authStorage } from '@/utils/authStorage'
+
 type EventHandler = (data: unknown) => void
 
 class RealtimeConnection {
@@ -7,9 +9,12 @@ class RealtimeConnection {
   private reconnectDelay = 1000
 
   connect() {
-    const token = localStorage.getItem('access_token')
+    // The token is session-scoped (see authStorage) so each browser tab
+    // attaches to the correct user namespace when multiple logins coexist.
+    const token = authStorage.getAccessToken()
     if (!token) return
 
+    // Rebuild connection from scratch to avoid duplicated listeners.
     this.disconnect()
     this.eventSource = new EventSource(`/api/realtime/events/?token=${token}`)
 
@@ -21,7 +26,7 @@ class RealtimeConnection {
         if (handlers) {
           handlers.forEach((handler) => handler(parsed.data))
         }
-        // Also emit to wildcard listeners
+        // Wildcard listeners receive the full envelope for diagnostics.
         const wildcardHandlers = this.handlers.get('*')
         if (wildcardHandlers) {
           wildcardHandlers.forEach((handler) => handler(parsed))
@@ -34,6 +39,7 @@ class RealtimeConnection {
     this.eventSource.onerror = () => {
       this.eventSource?.close()
       this.eventSource = null
+      // Keep reconnect logic centralized so all callers get the same backoff behavior.
       this.scheduleReconnect()
     }
 
@@ -66,6 +72,7 @@ class RealtimeConnection {
   }
 
   private scheduleReconnect() {
+    // Exponential backoff with cap to protect both browser and backend during outages.
     this.reconnectTimer = setTimeout(() => {
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
       this.connect()

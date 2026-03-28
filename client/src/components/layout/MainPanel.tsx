@@ -32,7 +32,7 @@ export function MainPanel() {
           <div className="w-16 h-16 mx-auto rounded-full ind-recess flex items-center justify-center">
             <Radio size={28} style={{ color: 'var(--color-accent)' }} />
           </div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>Welcome to BexChat</h2>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>Welcome to Octara Hub</h2>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Create or join a workspace to get started</p>
         </div>
       </div>

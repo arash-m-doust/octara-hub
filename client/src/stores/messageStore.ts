@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { messageApi, type Message } from '@/api/messages'
 import { extractResults } from '@/api/client'
+import type { User } from '@/api/auth'
 
 export interface PinnedMessage {
   id: number
@@ -31,6 +32,8 @@ interface MessageState {
   cyclePinIndex: (direction: 'next' | 'prev') => void
   setReplyTo: (msg: Message | null) => void
   addMessage: (msg: Message) => void
+  syncUserSnapshot: (user: User) => void
+  reset: () => void
   clear: () => void
 }
 
@@ -160,6 +163,66 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     // Avoid duplicates
     if (s.messages.some((m) => m.id === msg.id)) return s
     return { messages: [...s.messages, msg] }
+  }),
+
+  syncUserSnapshot: (user) => set((s) => ({
+    messages: s.messages.map((message) => ({
+      ...message,
+      user: message.user.id === user.id
+        ? { ...message.user, ...user, profile: { ...message.user.profile, ...user.profile } }
+        : message.user,
+      reply_to_preview: message.reply_to_preview
+        ? {
+            ...message.reply_to_preview,
+            user: message.reply_to_preview.user.id === user.id
+              ? { ...message.reply_to_preview.user, ...user, profile: { ...message.reply_to_preview.user.profile, ...user.profile } }
+              : message.reply_to_preview.user,
+          }
+        : null,
+    })),
+    pinnedMessages: s.pinnedMessages.map((pin) => ({
+      ...pin,
+      message: {
+        ...pin.message,
+        user: pin.message.user.id === user.id
+          ? { ...pin.message.user, ...user, profile: { ...pin.message.user.profile, ...user.profile } }
+          : pin.message.user,
+        reply_to_preview: pin.message.reply_to_preview
+          ? {
+              ...pin.message.reply_to_preview,
+              user: pin.message.reply_to_preview.user.id === user.id
+                ? { ...pin.message.reply_to_preview.user, ...user, profile: { ...pin.message.reply_to_preview.user.profile, ...user.profile } }
+                : pin.message.reply_to_preview.user,
+            }
+          : null,
+      },
+    })),
+    replyTo: s.replyTo
+      ? {
+          ...s.replyTo,
+          user: s.replyTo.user.id === user.id
+            ? { ...s.replyTo.user, ...user, profile: { ...s.replyTo.user.profile, ...user.profile } }
+            : s.replyTo.user,
+          reply_to_preview: s.replyTo.reply_to_preview
+            ? {
+                ...s.replyTo.reply_to_preview,
+                user: s.replyTo.reply_to_preview.user.id === user.id
+                  ? { ...s.replyTo.reply_to_preview.user, ...user, profile: { ...s.replyTo.reply_to_preview.user.profile, ...user.profile } }
+                  : s.replyTo.reply_to_preview.user,
+              }
+            : null,
+        }
+      : null,
+  })),
+
+  reset: () => set({
+    messages: [],
+    isLoading: false,
+    hasMore: false,
+    nextCursor: null,
+    replyTo: null,
+    pinnedMessages: [],
+    currentPinIndex: 0,
   }),
 
   clear: () => set({ messages: [], hasMore: false, nextCursor: null, replyTo: null, pinnedMessages: [], currentPinIndex: 0 }),

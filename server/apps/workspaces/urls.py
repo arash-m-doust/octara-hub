@@ -10,7 +10,10 @@ urlpatterns = [
 
     # Members
     path('<int:workspace_id>/members/', views.WorkspaceMemberListView.as_view(), name='workspace_members'),
+    path('<int:workspace_id>/users/', views.WorkspaceUserListView.as_view(), name='workspace_users'),
+    path('<int:workspace_id>/members/invite/', views.WorkspaceMemberInviteView.as_view(), name='workspace_member_invite'),
     path('<int:workspace_id>/members/<int:user_id>/', views.WorkspaceMemberUpdateView.as_view(), name='workspace_member_update'),
+    path('<int:workspace_id>/members/<int:user_id>/role/', views.WorkspaceMemberRoleUpdateView.as_view(), name='workspace_member_role_update'),
     path('<int:workspace_id>/members/<int:user_id>/kick/', views.WorkspaceMemberKickView.as_view(), name='workspace_member_kick'),
 
     # Roles

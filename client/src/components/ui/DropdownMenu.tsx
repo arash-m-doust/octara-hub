@@ -2,7 +2,7 @@ import { type ReactNode, useState, useRef, useEffect } from 'react'
 
 interface DropdownItem {
   label: string
-  icon?: string
+  icon?: ReactNode
   onClick: () => void
   danger?: boolean
 }
@@ -44,7 +44,7 @@ export function DropdownMenu({ trigger, items }: DropdownMenuProps) {
                 setOpen(false)
               }}
             >
-              {item.icon && <span className="me-2">{item.icon}</span>}
+              {item.icon && <span className="me-2 inline-flex items-center">{item.icon}</span>}
               {item.label}
             </button>
           ))}

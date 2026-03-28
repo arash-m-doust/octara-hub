@@ -4,6 +4,7 @@ djangorestframework-simplejwt>=5.3,<6.0
 django-cors-headers>=4.3,<5.0
 django-filter>=24.0,<25.0
 PyMySQL>=1.1,<2.0
+psycopg[binary]>=3.1,<4.0
 cryptography>=42.0
 Pillow>=10.0,<11.0
 python-decouple>=3.8,<4.0

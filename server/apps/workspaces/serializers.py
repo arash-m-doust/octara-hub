@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from apps.authentication.serializers import UserSerializer
+from apps.authentication.models import UserProfile
 from .models import Workspace, Role, WorkspaceMember, Category, Channel, ChannelMember
+from .services import ensure_workspace_defaults
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -19,6 +21,22 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
         model = WorkspaceMember
         fields = ['id', 'user', 'role', 'nickname', 'joined_at']
         read_only_fields = ['id', 'joined_at']
+
+
+class WorkspaceDirectoryProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['display_name', 'avatar_path', 'status']
+
+
+class WorkspaceDirectoryUserSerializer(serializers.ModelSerializer):
+    profile = WorkspaceDirectoryProfileSerializer(read_only=True)
+    is_member = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'profile', 'is_member']
+        read_only_fields = ['id', 'username', 'profile', 'is_member']
 
 
 class ChannelSerializer(serializers.ModelSerializer):
@@ -84,26 +102,7 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         workspace = Workspace.objects.create(owner=user, **validated_data)
-        # Create default role
-        default_role = Role.objects.create(
-            workspace=workspace, name='Member', is_default=True,
-            permissions={'send_messages': True, 'read_messages': True, 'upload_files': True},
-        )
-        # Create admin role
-        Role.objects.create(
-            workspace=workspace, name='Admin', position=1,
-            permissions={
-                'manage_channels': True, 'manage_roles': True, 'kick_members': True,
-                'ban_members': True, 'manage_messages': True, 'send_messages': True,
-                'read_messages': True, 'upload_files': True, 'manage_workspace': True,
-            },
-        )
-        # Add owner as member
-        WorkspaceMember.objects.create(workspace=workspace, user=user, role=default_role)
-        # Create default category and channel
-        category = Category.objects.create(workspace=workspace, name='General')
-        channel = Channel.objects.create(workspace=workspace, category=category, name='general', description='General discussion')
-        ChannelMember.objects.create(channel=channel, user=user)
+        ensure_workspace_defaults(workspace, user)
         return workspace
 
 

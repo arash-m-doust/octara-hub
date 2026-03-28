@@ -31,6 +31,17 @@ export interface WorkspaceMember {
   joined_at: string
 }
 
+export interface WorkspaceUser {
+  id: number
+  username: string
+  profile: {
+    display_name: string
+    avatar_path: string
+    status: 'online' | 'idle' | 'dnd' | 'offline'
+  }
+  is_member: boolean
+}
+
 export interface Category {
   id: number
   workspace: number
@@ -67,6 +78,12 @@ export const workspaceApi = {
 
   // Members
   members: (id: number) => api<WorkspaceMember[]>(`/workspaces/${id}/members/`),
+  users: (id: number, q?: string) =>
+    api<WorkspaceUser[]>(`/workspaces/${id}/users/${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  inviteMember: (wid: number, uid: number) =>
+    api<WorkspaceMember>(`/workspaces/${wid}/members/invite/`, { method: 'POST', body: { user_id: uid } }),
+  updateMemberRole: (wid: number, uid: number, roleId: number) =>
+    api<WorkspaceMember>(`/workspaces/${wid}/members/${uid}/role/`, { method: 'PATCH', body: { role_id: roleId } }),
   kickMember: (wid: number, uid: number) =>
     api(`/workspaces/${wid}/members/${uid}/kick/`, { method: 'DELETE' }),
 

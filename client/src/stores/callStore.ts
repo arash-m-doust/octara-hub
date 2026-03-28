@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import * as callsApi from '@/api/calls'
 import type { CallSession } from '@/api/calls'
+import type { User } from '@/api/auth'
+import { authStorage } from '@/utils/authStorage'
 
 function getMyUserId(): number | null {
   try {
-    const token = localStorage.getItem('access_token')
+    const token = authStorage.getAccessToken()
     if (!token) return null
     return JSON.parse(atob(token.split('.')[1])).user_id
   } catch {
@@ -43,6 +45,8 @@ interface CallState {
   cleanup: () => void
   clearMediaError: () => void
   createPeerConnection: (userId: number, createOffer: boolean, stream: MediaStream) => Promise<RTCPeerConnection | null>
+  syncUserSnapshot: (user: User) => void
+  reset: () => void
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -388,6 +392,78 @@ export const useCallStore = create<CallState>((set, get) => ({
       callDuration: 0,
       durationInterval: null,
     })
+  },
+
+  syncUserSnapshot: (user) => set((s) => ({
+    activeCall: s.activeCall
+      ? {
+          ...s.activeCall,
+          initiator: s.activeCall.initiator.id === user.id
+            ? {
+                ...s.activeCall.initiator,
+                username: user.username,
+                profile: {
+                  ...s.activeCall.initiator.profile,
+                  display_name: user.profile?.display_name || s.activeCall.initiator.profile?.display_name,
+                  avatar_path: user.profile?.avatar_path || s.activeCall.initiator.profile?.avatar_path,
+                },
+              }
+            : s.activeCall.initiator,
+          participants: s.activeCall.participants.map((participant) => (
+            participant.user.id === user.id
+              ? {
+                  ...participant,
+                  user: {
+                    ...participant.user,
+                    username: user.username,
+                    profile: {
+                      ...participant.user.profile,
+                      display_name: user.profile?.display_name || participant.user.profile?.display_name,
+                      avatar_path: user.profile?.avatar_path || participant.user.profile?.avatar_path,
+                    },
+                  },
+                }
+              : participant
+          )),
+        }
+      : null,
+    incomingCall: s.incomingCall
+      ? {
+          ...s.incomingCall,
+          initiator: s.incomingCall.initiator.id === user.id
+            ? {
+                ...s.incomingCall.initiator,
+                username: user.username,
+                profile: {
+                  ...s.incomingCall.initiator.profile,
+                  display_name: user.profile?.display_name || s.incomingCall.initiator.profile?.display_name,
+                  avatar_path: user.profile?.avatar_path || s.incomingCall.initiator.profile?.avatar_path,
+                },
+              }
+            : s.incomingCall.initiator,
+          participants: s.incomingCall.participants.map((participant) => (
+            participant.user.id === user.id
+              ? {
+                  ...participant,
+                  user: {
+                    ...participant.user,
+                    username: user.username,
+                    profile: {
+                      ...participant.user.profile,
+                      display_name: user.profile?.display_name || participant.user.profile?.display_name,
+                      avatar_path: user.profile?.avatar_path || participant.user.profile?.avatar_path,
+                    },
+                  },
+                }
+              : participant
+          )),
+        }
+      : null,
+  })),
+
+  reset: () => {
+    get().cleanup()
+    set({ incomingCall: null, mediaError: null })
   },
 
   createPeerConnection: async (userId: number, createOffer: boolean, stream: MediaStream) => {

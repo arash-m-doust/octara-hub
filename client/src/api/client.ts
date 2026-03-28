@@ -1,3 +1,5 @@
+import { authStorage } from '@/utils/authStorage'
+
 const API_BASE = '/api'
 
 interface RequestOptions {
@@ -15,7 +17,8 @@ export function extractResults<T>(data: T | { results: T; count?: number }): T {
 }
 
 async function refreshToken(): Promise<string | null> {
-  const refresh = localStorage.getItem('refresh_token')
+  // Refresh uses the same session namespace as active access token.
+  const refresh = authStorage.getRefreshToken()
   if (!refresh) return null
   try {
     const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
@@ -25,8 +28,8 @@ async function refreshToken(): Promise<string | null> {
     })
     if (!res.ok) return null
     const data = await res.json()
-    localStorage.setItem('access_token', data.access)
-    if (data.refresh) localStorage.setItem('refresh_token', data.refresh)
+    authStorage.setAccessToken(data.access)
+    if (data.refresh) authStorage.setRefreshToken(data.refresh)
     return data.access
   } catch {
     return null
@@ -35,7 +38,7 @@ async function refreshToken(): Promise<string | null> {
 
 export async function api<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {} } = options
-  let token = localStorage.getItem('access_token')
+  let token = authStorage.getAccessToken()
 
   const config: RequestInit = {
     method,
@@ -52,7 +55,7 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
 
   let res = await fetch(`${API_BASE}${path}`, config)
 
-  // Auto-refresh on 401
+  // Auto-refresh on 401 keeps UX smooth across access token expiry.
   if (res.status === 401 && token) {
     const newToken = await refreshToken()
     if (newToken) {
@@ -71,7 +74,7 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
 }
 
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
-  let token = localStorage.getItem('access_token')
+  let token = authStorage.getAccessToken()
 
   const config: RequestInit = {
     method: 'POST',

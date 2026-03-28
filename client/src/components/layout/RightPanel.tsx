@@ -9,6 +9,7 @@ import { fileApi, type Attachment } from '@/api/files'
 import { searchApi } from '@/api/search'
 import { messageApi, type Message } from '@/api/messages'
 import { extractResults } from '@/api/client'
+import { workspaceApi, type Role } from '@/api/workspaces'
 import { Pin as PinIcon } from 'lucide-react'
 import {
   X, Download, Search, FileText, Image, Film, Music,
@@ -67,10 +68,14 @@ function FileItem({ file }: { file: Attachment }) {
   )
 }
 
-export function RightPanel() {
+interface RightPanelProps {
+  width?: number
+}
+
+export function RightPanel({ width = 260 }: RightPanelProps) {
   const { t } = useTranslation()
   const { rightPanel, setRightPanel, setView, searchQuery, setSearchQuery } = useUIStore()
-  const { members, currentChannel } = useWorkspaceStore()
+  const { members, workspaceUsers, currentWorkspace, currentChannel, fetchWorkspaceUsers, inviteMember, kickMember, updateMemberRole } = useWorkspaceStore()
   const currentUser = useAuthStore((s) => s.user)
   const { createThread, setCurrentThread, fetchThreads } = useDMStore()
 
@@ -90,6 +95,64 @@ export function RightPanel() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [pinnedMessages, setPinnedMessages] = useState<{ id: number; message: Message; created_at: string }[]>([])
   const [pinnedLoading, setPinnedLoading] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+  const [invitingUserId, setInvitingUserId] = useState<number | null>(null)
+  const [memberActionError, setMemberActionError] = useState('')
+  const [memberActionKey, setMemberActionKey] = useState<string | null>(null)
+  const [workspaceRoles, setWorkspaceRoles] = useState<Role[]>([])
+
+  const myMembership = members.find((m) => m.user.id === currentUser?.id)
+  const canInviteMembers = !!currentWorkspace && (
+    !!currentUser?.is_superuser ||
+    currentWorkspace.is_owner ||
+    (!!currentUser?.is_staff && !!myMembership) ||
+    !!myMembership?.role?.permissions?.kick_members
+  )
+  const canKickMembers = canInviteMembers
+  const canPromoteDemote = !!currentWorkspace && !!currentUser?.is_superuser
+  const normalizedUserSearch = userSearch.trim().toLowerCase()
+  const workspaceUsersFiltered = members.filter((member) => {
+    if (!normalizedUserSearch) return true
+    const displayName = member.nickname || member.user.profile?.display_name || member.user.username
+    return displayName.toLowerCase().includes(normalizedUserSearch) || member.user.username.toLowerCase().includes(normalizedUserSearch)
+  })
+  const platformUsersFiltered = workspaceUsers.filter((workspaceUser) => {
+    if (!normalizedUserSearch) return true
+    const displayName = workspaceUser.profile?.display_name || workspaceUser.username
+    return displayName.toLowerCase().includes(normalizedUserSearch) || workspaceUser.username.toLowerCase().includes(normalizedUserSearch)
+  })
+
+  const resolveWorkspaceRole = (memberUserId: number, role?: { permissions?: Record<string, boolean>; name?: string } | null) => {
+    if (currentWorkspace?.owner === memberUserId) {
+      return { label: 'Owner', tone: 'owner' as const }
+    }
+    if (role?.permissions?.manage_channels) {
+      return { label: 'Admin', tone: 'admin' as const }
+    }
+    return { label: 'Member', tone: 'member' as const }
+  }
+
+  const roleBadgeStyle = (tone: 'owner' | 'admin' | 'member') => {
+    if (tone === 'owner') {
+      return {
+        color: '#e2b45e',
+        border: '1px solid #e2b45e',
+        backgroundColor: 'rgba(226, 180, 94, 0.14)',
+      }
+    }
+    if (tone === 'admin') {
+      return {
+        color: 'var(--color-accent)',
+        border: '1px solid var(--color-accent)',
+        backgroundColor: 'var(--color-accent-soft)',
+      }
+    }
+    return {
+      color: 'var(--color-text-secondary)',
+      border: '1px solid var(--color-border)',
+      backgroundColor: 'var(--color-surface-inset)',
+    }
+  }
 
   useEffect(() => {
     if (rightPanel !== 'pinned' || !currentChannel) return
@@ -112,6 +175,89 @@ export function RightPanel() {
       .finally(() => setFilesLoading(false))
   }, [rightPanel, currentChannel?.id])
 
+  useEffect(() => {
+    if (rightPanel !== 'members' || !currentWorkspace) return
+    const timeout = setTimeout(() => {
+      fetchWorkspaceUsers(currentWorkspace.id, userSearch.trim() || undefined)
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [rightPanel, currentWorkspace?.id, userSearch, fetchWorkspaceUsers])
+
+  useEffect(() => {
+    if (rightPanel !== 'members' || !currentWorkspace || !canPromoteDemote) {
+      setWorkspaceRoles([])
+      return
+    }
+    workspaceApi.roles(currentWorkspace.id)
+      .then((res) => {
+        const roles = extractResults(res)
+        setWorkspaceRoles(Array.isArray(roles) ? roles : [])
+      })
+      .catch(() => setWorkspaceRoles([]))
+  }, [rightPanel, currentWorkspace?.id, canPromoteDemote])
+
+  const getRoleIdByName = (name: 'Member' | 'Admin') => {
+    return workspaceRoles.find((role) => role.name === name)?.id
+  }
+  const memberRoleId = getRoleIdByName('Member')
+  const adminRoleId = getRoleIdByName('Admin')
+
+  const handleInvite = async (userId: number) => {
+    if (!currentWorkspace) return
+    setMemberActionError('')
+    setInvitingUserId(userId)
+    try {
+      await inviteMember(currentWorkspace.id, userId)
+      await fetchWorkspaceUsers(currentWorkspace.id, userSearch.trim() || undefined)
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'detail' in err
+        ? String((err as { detail: string }).detail)
+        : 'Failed to invite user'
+      setMemberActionError(msg)
+    } finally {
+      setInvitingUserId(null)
+    }
+  }
+
+  const handleKick = async (userId: number) => {
+    if (!currentWorkspace) return
+    setMemberActionError('')
+    setMemberActionKey(`kick-${userId}`)
+    try {
+      await kickMember(currentWorkspace.id, userId)
+      await fetchWorkspaceUsers(currentWorkspace.id, userSearch.trim() || undefined)
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'detail' in err
+        ? String((err as { detail: string }).detail)
+        : 'Failed to remove member'
+      setMemberActionError(msg)
+    } finally {
+      setMemberActionKey(null)
+    }
+  }
+
+  const handleRoleToggle = async (memberUserId: number, isAdmin: boolean) => {
+    if (!currentWorkspace) return
+    if (!memberRoleId || !adminRoleId) {
+      setMemberActionError('Required workspace roles are not available yet.')
+      return
+    }
+    const targetRoleId = isAdmin ? memberRoleId : adminRoleId
+    setMemberActionError('')
+    setMemberActionKey(`role-${memberUserId}`)
+    try {
+      await updateMemberRole(currentWorkspace.id, memberUserId, targetRoleId)
+      await fetchWorkspaceUsers(currentWorkspace.id, userSearch.trim() || undefined)
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'detail' in err
+        ? String((err as { detail: string }).detail)
+        : 'Failed to update role'
+      setMemberActionError(msg)
+    } finally {
+      setMemberActionKey(null)
+    }
+  }
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     setSearchLoading(true)
@@ -127,8 +273,9 @@ export function RightPanel() {
 
   return (
     <div
-      className="w-[260px] flex-shrink-0 flex flex-col border-s"
+      className="flex-shrink-0 flex flex-col border-s"
       style={{
+        width: `${width}px`,
         background: 'linear-gradient(180deg, var(--color-surface-plate) 0%, var(--color-surface-inset) 100%)',
         borderColor: 'var(--color-border-groove)',
       }}
@@ -153,34 +300,169 @@ export function RightPanel() {
       <div className="flex-1 overflow-y-auto p-3">
         {/* Members */}
         {rightPanel === 'members' && (
-          <div className="space-y-1">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors group">
-                <Avatar
-                  name={m.user.profile?.display_name || m.user.username}
-                  size="sm"
-                  status={m.user.profile?.status}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {m.nickname || m.user.profile?.display_name || m.user.username}
-                  </div>
-                  {m.role && (
-                    <div className="text-[10px] text-muted">{m.role.name}</div>
+          <div className="space-y-2">
+            <input
+              type="text"
+              className="ind-input text-xs"
+              placeholder="Search users..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+            />
+            {memberActionError && <p className="text-xs text-error">{memberActionError}</p>}
+            <div className="space-y-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider px-1 mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                  Workspace Users
+                </div>
+                <div className="space-y-1">
+                  {workspaceUsersFiltered.map((member) => {
+                    const displayName = member.nickname || member.user.profile?.display_name || member.user.username
+                    const isSelf = currentUser?.id === member.user.id
+                    const isOwner = currentWorkspace?.owner === member.user.id
+                    const roleBadge = resolveWorkspaceRole(member.user.id, member.role)
+                    const isAdminRole = roleBadge.tone === 'admin'
+                    const canKickThisMember = canKickMembers && !isSelf && !isOwner
+                    const canToggleRole = canPromoteDemote && !isSelf && !isOwner && !!memberRoleId && !!adminRoleId
+                    const isRoleActionLoading = memberActionKey === `role-${member.user.id}`
+                    const isKickActionLoading = memberActionKey === `kick-${member.user.id}`
+
+                    return (
+                      <div key={`workspace-${member.id}`} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors group">
+                        <Avatar
+                          name={displayName}
+                          size="sm"
+                          status={member.user.profile?.status}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                            <span className="truncate">{displayName}</span>
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded-full"
+                              style={roleBadgeStyle(roleBadge.tone)}
+                            >
+                              {roleBadge.label}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted truncate">
+                            {member.role?.name || member.user.username}
+                          </div>
+                        </div>
+                        {canToggleRole && (
+                          <button
+                            onClick={() => handleRoleToggle(member.user.id, isAdminRole)}
+                            disabled={isRoleActionLoading}
+                            className="text-[10px] px-2 py-1 rounded-ind border transition-colors disabled:opacity-60"
+                            style={{
+                              color: 'var(--color-accent)',
+                              borderColor: 'var(--color-accent)',
+                              background: 'transparent',
+                            }}
+                            title={isAdminRole ? 'Demote to Member' : 'Promote to Admin'}
+                          >
+                            {isRoleActionLoading ? 'Saving...' : isAdminRole ? 'Demote' : 'Promote'}
+                          </button>
+                        )}
+                        {canKickThisMember && (
+                          <button
+                            onClick={() => handleKick(member.user.id)}
+                            disabled={isKickActionLoading}
+                            className="text-[10px] px-2 py-1 rounded-ind border transition-colors disabled:opacity-60"
+                            style={{
+                              color: '#ff6b6b',
+                              borderColor: '#ff6b6b',
+                              background: 'transparent',
+                            }}
+                            title="Remove member"
+                          >
+                            {isKickActionLoading ? 'Removing...' : 'Kick'}
+                          </button>
+                        )}
+                        {currentUser && !isSelf && (
+                          <button
+                            onClick={() => handleOpenDM(member.user.id)}
+                            className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-ind ind-button p-0 transition-opacity"
+                            style={{ color: 'var(--color-accent)' }}
+                            title={t('dm.sendMessage')}
+                          >
+                            <MessageSquare size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {workspaceUsersFiltered.length === 0 && (
+                    <div className="text-center py-3 text-xs text-muted">No workspace users</div>
                   )}
                 </div>
-                {currentUser && m.user.id !== currentUser.id && (
-                  <button
-                    onClick={() => handleOpenDM(m.user.id)}
-                    className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-ind ind-button p-0 transition-opacity"
-                    style={{ color: 'var(--color-accent)' }}
-                    title={t('dm.sendMessage')}
-                  >
-                    <MessageSquare size={12} />
-                  </button>
-                )}
               </div>
-            ))}
+
+              <div>
+                <div className="text-[10px] uppercase tracking-wider px-1 mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                  All Platform Users
+                </div>
+                <div className="space-y-1">
+                  {platformUsersFiltered.map((workspaceUser) => {
+                    const membership = members.find((m) => m.user.id === workspaceUser.id)
+                    const displayName = workspaceUser.profile?.display_name || workspaceUser.username
+                    const isSelf = currentUser?.id === workspaceUser.id
+                    const roleBadge = membership ? resolveWorkspaceRole(membership.user.id, membership.role) : null
+
+                    return (
+                      <div key={`platform-${workspaceUser.id}`} className="flex items-center gap-2 p-1.5 rounded-ind hover:bg-surface-inset transition-colors group">
+                        <Avatar
+                          name={displayName}
+                          size="sm"
+                          status={workspaceUser.profile?.status}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                            <span className="truncate">{membership?.nickname || displayName}</span>
+                            {roleBadge && (
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                style={roleBadgeStyle(roleBadge.tone)}
+                              >
+                                {roleBadge.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted truncate">
+                            {membership?.role?.name || workspaceUser.username}
+                          </div>
+                        </div>
+                        {currentUser && !isSelf && (
+                          <button
+                            onClick={() => handleOpenDM(workspaceUser.id)}
+                            className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-ind ind-button p-0 transition-opacity"
+                            style={{ color: 'var(--color-accent)' }}
+                            title={t('dm.sendMessage')}
+                          >
+                            <MessageSquare size={12} />
+                          </button>
+                        )}
+                        {canInviteMembers && !workspaceUser.is_member && !isSelf && (
+                          <button
+                            onClick={() => handleInvite(workspaceUser.id)}
+                            disabled={invitingUserId === workspaceUser.id}
+                            className="text-[10px] px-2 py-1 rounded-ind border transition-colors disabled:opacity-60"
+                            style={{
+                              color: 'var(--color-accent)',
+                              borderColor: 'var(--color-accent)',
+                              background: 'transparent',
+                            }}
+                          >
+                            {invitingUserId === workspaceUser.id ? 'Inviting...' : 'Invite'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {platformUsersFiltered.length === 0 && (
+                    <div className="text-center py-3 text-xs text-muted">No platform users</div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

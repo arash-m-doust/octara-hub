@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { RegisterForm } from '@/components/auth/RegisterForm'
 import { ForgotPassword } from '@/components/auth/ForgotPassword'
+import { authStorage } from '@/utils/authStorage'
 
 type AuthView = 'login' | 'register' | 'forgot'
 
@@ -12,7 +13,7 @@ export default function App() {
   const { i18n } = useTranslation()
   const { isAuthenticated, user, fetchMe, logout } = useAuthStore()
   const [authView, setAuthView] = useState<AuthView>('login')
-  const [initializing, setInitializing] = useState(!!localStorage.getItem('access_token'))
+  const [initializing, setInitializing] = useState(authStorage.hasAccessToken())
   const initRef = useRef(false)
 
   // Set document direction based on language
@@ -26,8 +27,10 @@ export default function App() {
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
+    // Keep URL session key aligned with tab storage before auth check.
+    authStorage.syncUrlWithStoredSession()
 
-    if (localStorage.getItem('access_token')) {
+    if (authStorage.hasAccessToken()) {
       fetchMe().finally(() => setInitializing(false))
     } else {
       setInitializing(false)

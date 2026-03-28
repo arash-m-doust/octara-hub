@@ -1,3 +1,15 @@
+"""Django settings for Octara Hub.
+
+The project intentionally keeps the runtime simple for local development:
+- API server on localhost:8010
+- SPA dev server on localhost:5174
+- JWT auth for API calls
+- SSE endpoint for realtime updates
+
+Environment values are loaded through python-decouple.
+Important: DEBUG must be a boolean-like value (True/False, 1/0), not free text.
+"""
+
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -6,8 +18,22 @@ from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+def parse_bool(value, default=False):
+    """Safe boolean parsing for env vars with controlled fallback."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {'1', 'true', 'yes', 'on'}:
+        return True
+    if normalized in {'0', 'false', 'no', 'off'}:
+        return False
+    return default
+
+# Core runtime flags.
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = parse_bool(config('DEBUG', default='True'), default=True)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
@@ -43,7 +69,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'bexchat.urls'
+ROOT_URLCONF = 'octara_hub.urls'
 
 TEMPLATES = [
     {
@@ -61,14 +87,30 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'bexchat.wsgi.application'
+WSGI_APPLICATION = 'octara_hub.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+USE_SQLITE = parse_bool(config('USE_SQLITE', default='True'), default=True)
+if USE_SQLITE:
+    # Native local mode (zero external dependencies).
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    # Deploy mode (Compose/production database).
+    DATABASES = {
+        'default': {
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': config('DB_NAME', default='octara_hub'),
+            'USER': config('DB_USER', default='octara_hub'),
+            'PASSWORD': config('DB_PASSWORD', default='octara_hub'),
+            'HOST': config('DB_HOST', default='db'),
+            'PORT': config('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -90,8 +132,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS
+# Frontend origin for browser API calls.
 CORS_ALLOWED_ORIGINS = [
-    config('FRONTEND_URL', default='http://localhost:5173'),
+    config('FRONTEND_URL', default='http://localhost:5174'),
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -113,6 +156,7 @@ REST_FRAMEWORK = {
 }
 
 # JWT
+# Access/refresh durations are configured in minutes via env.
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=config('JWT_ACCESS_TOKEN_LIFETIME', default=30, cast=int)),
     'REFRESH_TOKEN_LIFETIME': timedelta(minutes=config('JWT_REFRESH_TOKEN_LIFETIME', default=10080, cast=int)),
@@ -127,8 +171,8 @@ MAX_UPLOAD_SIZE = config('MAX_UPLOAD_SIZE', default=52428800, cast=int)  # 50MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
 # App settings
-APP_NAME = config('APP_NAME', default='BexChat')
-FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+APP_NAME = config('APP_NAME', default='Octara Hub')
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5174')
 DEFAULT_LOCALE = config('DEFAULT_LOCALE', default='en')
 
 # Email

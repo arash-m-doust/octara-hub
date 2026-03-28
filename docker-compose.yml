@@ -1,0 +1,56 @@
+name: octara-hub
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: octara-hub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-octara_hub}
+      POSTGRES_USER: ${DB_USER:-octara_hub}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-octara_hub}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-octara_hub} -d ${DB_NAME:-octara_hub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: octara-hub-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      USE_SQLITE: "False"
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: db
+      DB_PORT: 5432
+      FRONTEND_URL: http://localhost:5174
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./server/storage:/app/server/storage
+      - ./server/media:/app/server/media
+      - ./server/staticfiles:/app/server/staticfiles
+    ports:
+      - "8010:8010"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: octara-hub-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5174:80"
+
+volumes:
+  postgres_data:

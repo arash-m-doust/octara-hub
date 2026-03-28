@@ -1,49 +1,61 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
-.venv/
-venv/
-env/
-
-# Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media/
-
-# Node
-node_modules/
-client/dist/
-client/build/
-*.tsbuildinfo
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
+# =========================
 # OS
+# =========================
 .DS_Store
 Thumbs.db
 
-# Storage (keep structure, ignore uploads)
-server/storage/workspaces/*
-server/storage/users/*
-server/storage/avatars/*
-server/storage/previews/*
-!server/storage/**/.gitkeep
+# =========================
+# IDE
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+.venv/
+venv/
+server/venv/
+
+# =========================
+# Env
+# =========================
+.env
+.env.*
+!*.env.example
+
+# =========================
+# Node
+# =========================
+node_modules/
+client/node_modules/
+
+# =========================
+# Build / Cache
+# =========================
+dist/
+client/dist/
+*.tsbuildinfo
+.cache/
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Django specific
+# =========================
+media/
+staticfiles/
+
+# =========================
+# Project specific
+# =========================
+server/db.sqlite3

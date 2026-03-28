@@ -12,7 +12,7 @@ export function StatusBar() {
 
   const channelName = view === 'dm'
     ? (currentThread ? 'Direct Message' : 'DMs')
-    : currentChannel?.name || currentWorkspace?.name || 'BexChat'
+    : currentChannel?.name || currentWorkspace?.name || 'Octara Hub'
 
   return (
     <div

@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import { authApi, type User } from '@/api/auth'
+import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useDMStore } from '@/stores/dmStore'
+import { useMessageStore } from '@/stores/messageStore'
+import { useUIStore } from '@/stores/uiStore'
+import { useCallStore } from '@/stores/callStore'
+import { authStorage } from '@/utils/authStorage'
 
 interface AuthState {
   user: User | null
@@ -11,15 +17,36 @@ interface AuthState {
   updateProfile: (data: Partial<{ display_name: string; locale: string; theme: string; status: string }>) => Promise<void>
 }
 
+function syncUserAcrossStores(user: User) {
+  // Central fan-out so display_name/avatar/status updates appear immediately
+  // in all already-loaded lists and messages.
+  useWorkspaceStore.getState().syncUserSnapshot(user)
+  useDMStore.getState().syncUserSnapshot(user)
+  useMessageStore.getState().syncUserSnapshot(user)
+  useCallStore.getState().syncUserSnapshot(user)
+}
+
+function resetAllStores() {
+  // Session isolation guard: clear cross-domain UI data on auth boundary.
+  useWorkspaceStore.getState().reset()
+  useDMStore.getState().reset()
+  useMessageStore.getState().reset()
+  useUIStore.getState().reset()
+  useCallStore.getState().reset()
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
 
   login: async (username, password) => {
     const { access, refresh } = await authApi.login({ username, password })
-    localStorage.setItem('access_token', access)
-    localStorage.setItem('refresh_token', refresh)
+    // Set namespace before storing tokens to avoid leaking into wrong session.
+    authStorage.setSessionFromUsername(username)
+    authStorage.setAccessToken(access)
+    authStorage.setRefreshToken(refresh)
     const user = await authApi.me()
+    resetAllStores()
     set({ user, isAuthenticated: true })
   },
 
@@ -28,24 +55,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    authStorage.clearTokens()
+    resetAllStores()
     set({ user: null, isAuthenticated: false })
   },
 
   fetchMe: async () => {
     try {
       const user = await authApi.me()
+      // Ensure URL/storage namespace matches canonical backend username.
+      authStorage.bindSessionToUsername(user.username)
       set({ user, isAuthenticated: true })
     } catch {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
+      authStorage.clearTokens()
+      resetAllStores()
       set({ user: null, isAuthenticated: false })
     }
   },
 
   updateProfile: async (data) => {
     const user = await authApi.updateProfile(data)
+    syncUserAcrossStores(user)
     set({ user })
   },
 }))

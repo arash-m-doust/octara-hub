@@ -12,6 +12,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['last_seen_at']
 
 
+class PlatformUserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['display_name', 'avatar_path', 'status']
+
+
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
 
@@ -19,6 +25,15 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser', 'profile']
         read_only_fields = ['id', 'is_staff', 'is_superuser']
+
+
+class PlatformUserSerializer(serializers.ModelSerializer):
+    profile = PlatformUserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'profile']
+        read_only_fields = ['id', 'username', 'profile']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
