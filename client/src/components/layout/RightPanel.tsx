@@ -10,10 +10,11 @@ import { searchApi } from '@/api/search'
 import { messageApi, type Message } from '@/api/messages'
 import { extractResults } from '@/api/client'
 import { workspaceApi, type Role } from '@/api/workspaces'
+import { toast } from '@/components/ui/Toast'
 import { Pin as PinIcon } from 'lucide-react'
 import {
   X, Download, Search, FileText, Image, Film, Music,
-  FileSpreadsheet, FileCode, Archive, File, Loader2, MessageSquare
+  FileSpreadsheet, FileCode, Archive, File, Loader2, MessageSquare, Eye
 } from 'lucide-react'
 
 function formatFileSize(bytes: number): string {
@@ -38,9 +39,60 @@ function getFileIcon(mimeType: string) {
 
 function FileItem({ file }: { file: Attachment }) {
   const isImage = file.mime_type.startsWith('image/')
+  const isOffice = (
+    file.mime_type === 'application/msword' ||
+    file.mime_type === 'application/vnd.ms-excel' ||
+    file.mime_type === 'application/vnd.ms-powerpoint' ||
+    file.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.mime_type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    file.mime_type === 'application/vnd.ms-excel.sheet.macroEnabled.12' ||
+    file.mime_type === 'application/vnd.ms-word.document.macroEnabled.12' ||
+    file.mime_type === 'application/vnd.ms-powerpoint.presentation.macroEnabled.12'
+  )
   const previewUrl = file.preview_url ? `/api${file.preview_url}` : null
   const downloadUrl = `/api${file.download_url}`
   const { icon: FileIcon, color } = getFileIcon(file.mime_type)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [officePreviewUrl, setOfficePreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (officePreviewUrl) {
+        URL.revokeObjectURL(officePreviewUrl)
+      }
+    }
+  }, [officePreviewUrl])
+
+  const openOfficePreview = async () => {
+    if (!file.preview_url) {
+      toast.info('Preview unavailable. Download the file to view it.')
+      return
+    }
+    setPreviewLoading(true)
+    try {
+      if (officePreviewUrl) {
+        URL.revokeObjectURL(officePreviewUrl)
+      }
+      const blob = await fileApi.previewBlob(file.preview_url)
+      const objectUrl = URL.createObjectURL(blob)
+      setOfficePreviewUrl(objectUrl)
+      setPreviewOpen(true)
+    } catch {
+      toast.error('Preview failed. Download the file to view it.')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const closeOfficePreview = () => {
+    setPreviewOpen(false)
+    if (officePreviewUrl) {
+      URL.revokeObjectURL(officePreviewUrl)
+      setOfficePreviewUrl(null)
+    }
+  }
 
   return (
     <div className="flex items-center gap-2.5 p-2 rounded-ind hover:bg-surface-inset group transition-all">
@@ -55,15 +107,41 @@ function FileItem({ file }: { file: Attachment }) {
         <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{file.original_filename}</div>
         <div className="text-[10px] text-muted">{formatFileSize(file.file_size)}</div>
       </div>
+      {isOffice && (
+        <button
+          type="button"
+          onClick={() => void openOfficePreview()}
+          disabled={previewLoading}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-ind transition-all disabled:opacity-50"
+          style={{ color: 'color-mix(in srgb, var(--color-accent) 60%, var(--color-text-primary) 40%)' }}
+          title="Preview"
+        >
+          <Eye size={14} />
+        </button>
+      )}
       <a
         href={downloadUrl}
         download={file.original_filename}
         className="opacity-0 group-hover:opacity-100 p-1 rounded-ind transition-all"
-        style={{ color: 'var(--color-accent)' }}
+        style={{ color: 'color-mix(in srgb, var(--color-accent) 60%, var(--color-text-primary) 40%)' }}
         title="Download"
       >
         <Download size={14} />
       </a>
+      {previewOpen && officePreviewUrl && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="w-[92vw] h-[88vh] rounded-ind-lg overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
+            <iframe src={officePreviewUrl} className="w-full h-full" title={file.original_filename} />
+          </div>
+          <button
+            type="button"
+            onClick={closeOfficePreview}
+            className="absolute top-4 end-4 px-3 py-1.5 rounded-ind ind-button"
+          >
+            Close
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -182,6 +260,15 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
     }, 250)
     return () => clearTimeout(timeout)
   }, [rightPanel, currentWorkspace?.id, userSearch, fetchWorkspaceUsers])
+
+  useEffect(() => {
+    if (rightPanel !== 'search') return
+    const timeout = setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>('[placeholder=\"Search messages...\"]')
+      input?.focus()
+    }, 50)
+    return () => clearTimeout(timeout)
+  }, [rightPanel])
 
   useEffect(() => {
     if (rightPanel !== 'members' || !currentWorkspace || !canPromoteDemote) {
@@ -307,6 +394,8 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
               placeholder="Search users..."
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
+              dir="auto"
+              style={{ unicodeBidi: 'plaintext' }}
             />
             {memberActionError && <p className="text-xs text-error">{memberActionError}</p>}
             <div className="space-y-3">
@@ -472,7 +561,7 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
             {filesLoading ? (
               <div className="flex items-center justify-center py-8 text-muted">
                 <Loader2 size={18} className="animate-spin" />
-                <span className="ml-2 text-sm">Loading files...</span>
+                <span className="ms-2 text-sm">Loading files...</span>
               </div>
             ) : files.length === 0 ? (
               <div className="text-center py-8">
@@ -502,11 +591,16 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                dir="auto"
+                style={{ unicodeBidi: 'plaintext' }}
               />
               <button onClick={handleSearch} className="ind-button !px-2 !py-1.5">
                 <Search size={14} />
               </button>
             </div>
+            <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              Cmd/Ctrl+K to open - Enter to search - Esc to close
+            </p>
             {searchLoading ? (
               <div className="flex items-center justify-center py-8 text-muted">
                 <Loader2 size={18} className="animate-spin" />
@@ -518,7 +612,7 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
                     <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                       {msg.user.profile?.display_name || msg.user.username}
                     </div>
-                    <div className="text-muted mt-0.5">{msg.content}</div>
+                    <div className="text-muted mt-0.5" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{msg.content}</div>
                   </div>
                 ))}
               </div>
@@ -560,7 +654,7 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
                         {pin.message.user.profile?.display_name || pin.message.user.username}
                       </span>
                     </div>
-                    <p className="text-muted whitespace-pre-wrap">{pin.message.content}</p>
+                    <p className="text-muted whitespace-pre-wrap" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{pin.message.content}</p>
                   </div>
                 ))}
               </div>

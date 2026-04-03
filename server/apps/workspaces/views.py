@@ -39,6 +39,7 @@ from .serializers import (
     WorkspaceSerializer,
 )
 from .services import ensure_workspace_core_roles
+from realtime.sse import publish_event
 
 
 # ---- Workspaces -------------------------------------------------------------
@@ -71,6 +72,16 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
         for workspace in queryset.iterator():
             ensure_workspace_core_roles(workspace)
         return queryset
+
+    def perform_create(self, serializer):
+        workspace = serializer.save()
+        workspace_data = WorkspaceSerializer(workspace, context={'request': self.request}).data
+        publish_event(f'workspace_{workspace.id}', 'workspace.created', {
+            'workspace': workspace_data,
+        })
+        publish_event(f'user_{self.request.user.id}', 'workspace.created', {
+            'workspace': workspace_data,
+        })
 
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -134,10 +145,39 @@ class JoinWorkspaceView(APIView):
         for channel in public_channels:
             ChannelMember.objects.get_or_create(channel=channel, user=request.user)
 
+        workspace_data = WorkspaceSerializer(workspace, context={'request': request}).data
+        publish_event(f'user_{request.user.id}', 'workspace.invited', {
+            'workspace_id': workspace.id,
+            'workspace_name': workspace.name,
+        })
+        publish_event(f'workspace_{workspace.id}', 'workspace.member.added', {
+            'workspace_id': workspace.id,
+            'user_id': request.user.id,
+        })
+
         return Response(
-            WorkspaceSerializer(workspace, context={'request': request}).data,
+            workspace_data,
             status=201,
         )
+
+
+class LeaveWorkspaceView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, workspace_id):
+        try:
+            member = WorkspaceMember.objects.get(
+                workspace_id=workspace_id,
+                user=request.user,
+            )
+        except WorkspaceMember.DoesNotExist:
+            return Response({'detail': 'Not a member.'}, status=404)
+
+        if member.workspace.owner_id == request.user.id:
+            return Response({'detail': 'Owner cannot leave. Transfer ownership first.'}, status=400)
+
+        member.delete()
+        return Response(status=204)
 
 
 # ---- Members ----------------------------------------------------------------
@@ -265,6 +305,15 @@ class WorkspaceMemberInviteView(APIView):
         for channel in public_channels:
             ChannelMember.objects.get_or_create(channel=channel, user=invited_user)
 
+        publish_event(f'user_{invited_user.id}', 'workspace.invited', {
+            'workspace_id': workspace.id,
+            'workspace_name': workspace.name,
+        })
+        publish_event(f'workspace_{workspace.id}', 'workspace.member.added', {
+            'workspace_id': workspace.id,
+            'user_id': invited_user.id,
+        })
+
         return Response(
             WorkspaceMemberSerializer(member, context={'request': request}).data,
             status=201,
@@ -352,7 +401,11 @@ class CategoryListCreateView(generics.ListCreateAPIView):
         ).prefetch_related('channels')
 
     def perform_create(self, serializer):
-        serializer.save(workspace_id=self.kwargs['workspace_id'])
+        category = serializer.save(workspace_id=self.kwargs['workspace_id'])
+        publish_event(f'workspace_{self.kwargs["workspace_id"]}', 'category.created', {
+            'workspace_id': self.kwargs['workspace_id'],
+            'category': CategorySerializer(category, context={'request': self.request}).data,
+        })
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -387,6 +440,10 @@ class ChannelListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         channel = serializer.save(workspace_id=self.kwargs['workspace_id'])
         ChannelMember.objects.create(channel=channel, user=self.request.user)
+        publish_event(f'workspace_{self.kwargs["workspace_id"]}', 'channel.created', {
+            'workspace_id': self.kwargs['workspace_id'],
+            'channel': ChannelSerializer(channel, context={'request': self.request}).data,
+        })
 
 
 class ChannelDetailView(generics.RetrieveUpdateDestroyAPIView):

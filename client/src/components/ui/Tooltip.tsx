@@ -22,8 +22,8 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
           className={clsx(
             'absolute z-50 px-2 py-1 text-xs font-medium text-white whitespace-nowrap rounded-ind',
             {
-              'bottom-full mb-2 left-1/2 -translate-x-1/2': position === 'top',
-              'top-full mt-2 left-1/2 -translate-x-1/2': position === 'bottom',
+              'bottom-full mb-2 start-1/2 -translate-x-1/2': position === 'top',
+              'top-full mt-2 start-1/2 -translate-x-1/2': position === 'bottom',
               'end-full me-2 top-1/2 -translate-y-1/2': position === 'left',
               'start-full ms-2 top-1/2 -translate-y-1/2': position === 'right',
             },

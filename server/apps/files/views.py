@@ -8,11 +8,20 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser
 
 from apps.messaging.models import Message
+from apps.messaging.serializers import MessageSerializer
 from apps.workspaces.models import Channel, ChannelMember, WorkspaceMember
-from apps.dm.models import DMParticipant
+from apps.dm.models import DMParticipant, DMThread
+from realtime.sse import publish_event
 from .models import Attachment
 from .serializers import AttachmentSerializer
-from .storage import get_channel_upload_path, get_dm_upload_path, save_uploaded_file, delete_file
+from .storage import (
+    get_channel_upload_path,
+    get_dm_upload_path,
+    save_uploaded_file,
+    delete_file,
+    is_office_document,
+    generate_office_preview,
+)
 
 
 class FileUploadView(APIView):
@@ -29,6 +38,23 @@ class FileUploadView(APIView):
         channel_id = request.data.get('channel_id')
         dm_thread_id = request.data.get('dm_thread_id')
         message_content = request.data.get('message', '')
+        workspace_id = None
+
+        if channel_id in ('', None):
+            channel_id = None
+        else:
+            try:
+                channel_id = int(channel_id)
+            except (TypeError, ValueError):
+                return Response({'detail': 'channel_id must be an integer.'}, status=400)
+
+        if dm_thread_id in ('', None):
+            dm_thread_id = None
+        else:
+            try:
+                dm_thread_id = int(dm_thread_id)
+            except (TypeError, ValueError):
+                return Response({'detail': 'dm_thread_id must be an integer.'}, status=400)
 
         # Determine storage path and create message
         if channel_id:
@@ -49,7 +75,6 @@ class FileUploadView(APIView):
                 thread_id=dm_thread_id, user=request.user
             ).exists():
                 return Response({'detail': 'Not a participant.'}, status=403)
-            workspace_id = None
             dest_path = get_dm_upload_path(request.user.id, dm_thread_id, file.name)
             message = Message.objects.create(
                 dm_thread_id=dm_thread_id, user=request.user,
@@ -71,6 +96,40 @@ class FileUploadView(APIView):
             file_size=file.size,
             checksum=checksum,
         )
+
+        if is_office_document(mime, file.name):
+            preview_path = generate_office_preview(Path(attachment.stored_path))
+            if preview_path:
+                attachment.preview_path = str(preview_path)
+                attachment.save(update_fields=['preview_path'])
+
+        serialized_message = MessageSerializer(message, context={'request': request}).data
+
+        if message.channel_id:
+            ChannelMember.objects.filter(
+                channel_id=message.channel_id,
+                user=request.user,
+            ).update(last_read_message_id=message.id)
+            publish_event(f'channel_{message.channel_id}', 'message.created', {
+                'message': serialized_message,
+            })
+        elif message.dm_thread_id:
+            DMThread.objects.filter(id=message.dm_thread_id).update(updated_at=message.created_at)
+            DMParticipant.objects.filter(
+                thread_id=message.dm_thread_id,
+                user=request.user,
+            ).update(last_read_message_id=message.id)
+            publish_event(f'dm_{message.dm_thread_id}', 'message.created', {
+                'message': serialized_message,
+            })
+            recipient_ids = DMParticipant.objects.filter(
+                thread_id=message.dm_thread_id,
+            ).exclude(user=request.user).values_list('user_id', flat=True)
+            for user_id in recipient_ids:
+                publish_event(f'user_{user_id}', 'dm.message.created', {
+                    'thread_id': message.dm_thread_id,
+                    'message': serialized_message,
+                })
 
         return Response(AttachmentSerializer(attachment).data, status=201)
 
@@ -108,10 +167,24 @@ class FilePreviewView(APIView):
             raise Http404
 
         if attachment.preview_path and Path(attachment.preview_path).exists():
+            preview_mime = mimetypes.guess_type(attachment.preview_path)[0] or 'application/octet-stream'
             return FileResponse(
                 open(attachment.preview_path, 'rb'),
-                content_type='image/jpeg',
+                content_type=preview_mime,
             )
+
+        # Lazy preview generation helps previously uploaded Office files
+        # that were created before preview conversion existed.
+        if is_office_document(attachment.mime_type, attachment.original_filename):
+            generated_preview = generate_office_preview(Path(attachment.stored_path))
+            if generated_preview and generated_preview.exists():
+                attachment.preview_path = str(generated_preview)
+                attachment.save(update_fields=['preview_path'])
+                preview_mime = mimetypes.guess_type(str(generated_preview))[0] or 'application/octet-stream'
+                return FileResponse(
+                    open(generated_preview, 'rb'),
+                    content_type=preview_mime,
+                )
 
         # For images, serve the original as preview
         if attachment.mime_type.startswith('image/'):

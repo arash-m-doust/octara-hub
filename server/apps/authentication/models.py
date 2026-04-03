@@ -12,7 +12,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=100, blank=True)
     avatar_path = models.CharField(max_length=500, blank=True)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OFFLINE)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONLINE)
     locale = models.CharField(max_length=5, default='en')
     theme = models.CharField(max_length=20, default='light')
     last_seen_at = models.DateTimeField(null=True, blank=True)

@@ -5,16 +5,16 @@
 @layer base {
   /* ── Light Theme: Brushed Aluminum ── */
   :root {
-    --color-surface: #c8c8cc;
-    --color-surface-raised: #d6d6da;
-    --color-surface-inset: #b0b0b6;
-    --color-surface-plate: #bfc0c5;
+    --color-surface: #cacacf;
+    --color-surface-raised: #d8d8dc;
+    --color-surface-inset: #b4b4ba;
+    --color-surface-plate: #c4c4c9;
     --color-border: #a0a0a8;
     --color-border-light: #b8b8bf;
     --color-border-groove: #8e8e96;
     --color-text-primary: #1a1a1f;
-    --color-text-secondary: #4a4a52;
-    --color-text-muted: #6e6e78;
+    --color-text-secondary: #2e2e36;
+    --color-text-muted: #4a4a54;
     --color-accent: #00BCD4;
     --color-accent-glow: rgba(0, 188, 212, 0.35);
     --color-accent-soft: #d0eff4;
@@ -263,6 +263,10 @@
     @apply text-[11px] font-semibold uppercase tracking-widest;
     color: var(--color-text-muted);
     text-shadow: 0 1px 0 var(--color-metal-highlight);
+  }
+
+  :root .ind-label {
+    color: var(--color-text-secondary);
   }
 
   /* ── Metallic Toggle Switch ── */

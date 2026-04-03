@@ -66,6 +66,8 @@ export function Avatar({ src, name, size = 'md', status }: AvatarProps) {
       {status && (
         <span
           className={clsx('absolute bottom-0 end-0 rounded-full ind-led', ledSize)}
+          role="img"
+          aria-label={`Status: ${status}`}
           style={{
             backgroundColor: statusColor,
             borderWidth: '2px',

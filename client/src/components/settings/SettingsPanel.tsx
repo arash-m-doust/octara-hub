@@ -140,7 +140,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           }}
                         />
                         <span style={{ color: 'var(--color-text-primary)' }}>{opt.label}</span>
-                        {isSelected && <Check size={14} className="ml-auto" style={{ color: 'var(--color-accent)' }} />}
+                        {isSelected && <Check size={14} className="ms-auto" style={{ color: 'var(--color-accent)' }} />}
                       </button>
                     )
                   })}

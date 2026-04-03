@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCallStore } from '@/stores/callStore'
+import { toast } from '@/components/ui/Toast'
 import { Phone, AlertTriangle } from 'lucide-react'
 
 interface CallButtonProps {
@@ -10,6 +12,12 @@ interface CallButtonProps {
 export function CallButton({ channelId, dmThreadId }: CallButtonProps) {
   const { t } = useTranslation()
   const { activeCall, startCall, mediaError, clearMediaError } = useCallStore()
+
+  useEffect(() => {
+    if (mediaError) {
+      toast.error(mediaError)
+    }
+  }, [mediaError])
 
   const handleJoinCall = () => {
     if (activeCall) return

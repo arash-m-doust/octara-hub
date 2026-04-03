@@ -3,6 +3,7 @@ import { dmApi, type DMThread } from '@/api/dm'
 import { extractResults } from '@/api/client'
 import type { Message } from '@/api/messages'
 import { authApi, type User, type PlatformUser } from '@/api/auth'
+import { toast } from '@/components/ui/Toast'
 
 interface DMState {
   threads: DMThread[]
@@ -14,6 +15,9 @@ interface DMState {
   fetchThreads: () => Promise<void>
   fetchPlatformUsers: (q?: string) => Promise<void>
   setCurrentThread: (thread: DMThread | null) => void
+  setThreadUnread: (threadId: number, unreadCount: number) => void
+  incrementThreadUnread: (threadId: number) => void
+  markThreadRead: (threadId: number) => Promise<void>
   fetchMessages: (threadId: number) => Promise<void>
   sendMessage: (threadId: number, content: string) => Promise<void>
   createThread: (userIds: number[], name?: string) => Promise<DMThread>
@@ -32,7 +36,13 @@ export const useDMStore = create<DMState>((set, get) => ({
   fetchThreads: async () => {
     try {
       const res = await dmApi.threads()
-      set({ threads: extractResults(res) })
+      const list = extractResults(res)
+      set((s) => ({
+        threads: list,
+        currentThread: s.currentThread
+          ? (list.find((thread) => thread.id === s.currentThread!.id) ?? s.currentThread)
+          : null,
+      }))
     } catch (err) {
       console.error('Failed to fetch DM threads:', err)
     }
@@ -49,8 +59,43 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   setCurrentThread: (thread) => {
     // Changing thread resets message pane and triggers fresh history load.
-    set({ currentThread: thread, messages: [] })
-    if (thread) get().fetchMessages(thread.id)
+    if (!thread) {
+      set({ currentThread: null, messages: [] })
+      return
+    }
+    set((s) => ({
+      currentThread: { ...thread, unread_count: 0 },
+      threads: s.threads.map((t) => (t.id === thread.id ? { ...t, unread_count: 0 } : t)),
+      messages: [],
+    }))
+    get().fetchMessages(thread.id)
+  },
+
+  setThreadUnread: (threadId, unreadCount) => set((s) => ({
+    threads: s.threads.map((t) => (
+      t.id === threadId ? { ...t, unread_count: Math.max(0, unreadCount) } : t
+    )),
+    currentThread: s.currentThread?.id === threadId
+      ? { ...s.currentThread, unread_count: Math.max(0, unreadCount) }
+      : s.currentThread,
+  })),
+
+  incrementThreadUnread: (threadId) => set((s) => ({
+    threads: s.threads.map((t) => (
+      t.id === threadId ? { ...t, unread_count: (t.unread_count || 0) + 1 } : t
+    )),
+    currentThread: s.currentThread?.id === threadId
+      ? { ...s.currentThread, unread_count: (s.currentThread.unread_count || 0) + 1 }
+      : s.currentThread,
+  })),
+
+  markThreadRead: async (threadId) => {
+    get().setThreadUnread(threadId, 0)
+    try {
+      await dmApi.read(threadId)
+    } catch (err) {
+      console.error('Failed to mark DM thread as read:', err)
+    }
   },
 
   fetchMessages: async (threadId) => {
@@ -65,12 +110,17 @@ export const useDMStore = create<DMState>((set, get) => ({
   },
 
   sendMessage: async (threadId, content) => {
-    const msg = await dmApi.sendMessage(threadId, { content })
-    // Optimistic append avoids visible latency while SSE catches up.
-    set((s) => {
-      if (s.messages.some((m) => m.id === msg.id)) return s
-      return { messages: [...s.messages, msg] }
-    })
+    try {
+      const msg = await dmApi.sendMessage(threadId, { content })
+      // Optimistic append avoids visible latency while SSE catches up.
+      set((s) => {
+        if (s.messages.some((m) => m.id === msg.id)) return s
+        return { messages: [...s.messages, msg] }
+      })
+    } catch (err) {
+      toast.error('Message failed to send')
+      throw err
+    }
   },
 
   createThread: async (userIds, name) => {

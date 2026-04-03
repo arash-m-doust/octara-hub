@@ -66,10 +66,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Ensure URL/storage namespace matches canonical backend username.
       authStorage.bindSessionToUsername(user.username)
       set({ user, isAuthenticated: true })
-    } catch {
-      authStorage.clearTokens()
-      resetAllStores()
-      set({ user: null, isAuthenticated: false })
+    } catch (err: unknown) {
+      const status = (
+        err && typeof err === 'object' && 'status' in err
+          ? Number((err as { status?: unknown }).status)
+          : null
+      )
+      if (status === 401 || status === 403) {
+        authStorage.clearTokens()
+        resetAllStores()
+        set({ user: null, isAuthenticated: false })
+        return
+      }
+      throw err
     }
   },
 

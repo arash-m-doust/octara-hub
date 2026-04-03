@@ -27,4 +27,11 @@ export const dmApi = {
     api<Message>(`/dm/threads/${threadId}/messages/${messageId}/`, { method: 'PATCH', body: { content } }),
   deleteMessage: (threadId: number, messageId: number) =>
     api(`/dm/threads/${threadId}/messages/${messageId}/`, { method: 'DELETE' }),
+  read: (threadId: number) =>
+    api<{ thread_id: number; last_read_message_id: number | null; unread_count: number }>(
+      `/dm/threads/${threadId}/read/`,
+      { method: 'POST' },
+    ),
+  typing: (threadId: number) =>
+    api(`/dm/threads/${threadId}/typing/`, { method: 'POST' }),
 }

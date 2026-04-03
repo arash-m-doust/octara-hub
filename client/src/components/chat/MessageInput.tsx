@@ -1,64 +1,170 @@
-import { useState, useRef } from 'react'
+﻿import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMessageStore } from '@/stores/messageStore'
+import { useDMStore } from '@/stores/dmStore'
+import { dmApi } from '@/api/dm'
 import { fileApi } from '@/api/files'
-import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { messageApi } from '@/api/messages'
+import { toast } from '@/components/ui/Toast'
 import { Paperclip, Send, X, Loader2 } from 'lucide-react'
 
-interface MessageInputProps {
-  onSend: (content: string) => void
-  placeholder?: string
+interface UploadTarget {
+  type: 'channel' | 'dm'
+  id: number
 }
 
-export function MessageInput({ onSend, placeholder }: MessageInputProps) {
+interface MessageInputProps {
+  onSend: (content: string) => void | Promise<void>
+  placeholder?: string
+  uploadTarget: UploadTarget
+}
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024
+
+export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInputProps) {
   const { t } = useTranslation()
   const [content, setContent] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const { replyTo, setReplyTo, fetchMessages } = useMessageStore()
-  const { currentChannel } = useWorkspaceStore()
+  const [isDragging, setIsDragging] = useState(false)
+  const { replyTo, setReplyTo, fetchMessages: fetchChannelMessages } = useMessageStore()
+  const { fetchMessages: fetchDMMessages } = useDMStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!content.trim()) return
     setError('')
     try {
-      onSend(content.trim())
+      await Promise.resolve(onSend(content.trim()))
       setContent('')
     } catch {
-      setError('Failed to send message')
+      const msg = 'Failed to send message'
+      setError(msg)
+      toast.error(msg)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !currentChannel) return
+  const uploadFile = async (file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      const msg = 'File too large. Maximum size is 50MB.'
+      setError(msg)
+      toast.error(msg)
+      return
+    }
+
     setUploading(true)
     setError('')
+
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('channel_id', String(currentChannel.id))
+      if (uploadTarget.type === 'channel') {
+        formData.append('channel_id', String(uploadTarget.id))
+      } else {
+        formData.append('dm_thread_id', String(uploadTarget.id))
+      }
+
       await fileApi.upload(formData)
-      await fetchMessages(currentChannel.id)
+
+      if (uploadTarget.type === 'channel') {
+        await fetchChannelMessages(uploadTarget.id)
+      } else {
+        await fetchDMMessages(uploadTarget.id)
+      }
     } catch (err) {
       console.error('File upload failed:', err)
-      setError('Failed to upload file')
+      const msg = 'Failed to upload file'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await uploadFile(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      await uploadFile(file)
+    }
+  }
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find((item) => item.type.startsWith('image/'))
+    if (!imageItem) return
+
+    e.preventDefault()
+    const file = imageItem.getAsFile()
+    if (file) {
+      await uploadFile(file)
+    }
+  }
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value)
+
+    if (!typingTimer.current) {
+      if (uploadTarget.type === 'channel') {
+        messageApi.typing(uploadTarget.id).catch(() => {})
+      } else {
+        dmApi.typing(uploadTarget.id).catch(() => {})
+      }
+    }
+    if (typingTimer.current) {
+      clearTimeout(typingTimer.current)
+    }
+    typingTimer.current = setTimeout(() => {
+      typingTimer.current = null
+    }, 2000)
+  }
+
   return (
-    <div className="flex-shrink-0 px-4 pb-3">
+    <div
+      className={`relative flex-shrink-0 px-4 pb-3 ${isDragging ? 'opacity-80' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div
+          className="absolute inset-0 flex items-center justify-center z-10 rounded-ind-lg"
+          style={{
+            background: 'var(--color-accent-soft)',
+            border: '2px dashed var(--color-accent)',
+            borderRadius: 8,
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ color: 'var(--color-accent)', fontSize: 14 }}>Drop file to upload</span>
+        </div>
+      )}
+
       {/* Reply indicator */}
       {replyTo && (
         <div
@@ -66,23 +172,23 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
           style={{
             background: 'var(--color-accent-soft)',
             borderRadius: '6px 6px 0 0',
-            borderLeft: '2px solid var(--color-accent)',
+            borderInlineStart: '2px solid var(--color-accent)',
           }}
         >
           <span style={{ color: 'var(--color-accent)' }}>Replying to</span>
-          <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{replyTo.user.profile?.display_name || replyTo.user.username}</span>
-          <span className="text-muted truncate flex-1">{replyTo.content}</span>
+          <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+            {replyTo.user.profile?.display_name || replyTo.user.username}
+          </span>
+          <span className="text-muted truncate flex-1" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{replyTo.content}</span>
           <button onClick={() => setReplyTo(null)} className="text-muted hover:text-error transition-colors">
             <X size={14} />
           </button>
         </div>
       )}
 
-      {error && (
-        <div className="text-xs text-error mb-1 px-3">{error}</div>
-      )}
+      {error && <div className="text-xs text-error mb-1 px-3">{error}</div>}
 
-      {/* Input bar — recessed metal panel */}
+      {/* Input bar */}
       <div
         className="flex items-end gap-2 p-2 rounded-ind-lg"
         style={{
@@ -91,31 +197,31 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
           boxShadow: 'inset 0 2px 4px var(--color-metal-shadow)',
         }}
       >
-        {/* File upload */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="w-8 h-8 flex items-center justify-center rounded-ind ind-button p-0 text-muted"
           disabled={uploading}
           title="Attach file"
+          aria-label="Attach file"
         >
           {uploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
         </button>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
 
-        {/* Text input */}
         <textarea
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-5 max-h-32 min-h-[36px] py-1.5"
-          style={{ color: 'var(--color-text-primary)' }}
+          style={{ color: 'var(--color-text-primary)', unicodeBidi: 'plaintext' }}
           placeholder={placeholder || t('chat.typeMessage')}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={handleContentChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          dir="auto"
           rows={1}
         />
 
-        {/* Send button — cyan when content present */}
         <button
-          onClick={handleSend}
+          onClick={() => void handleSend()}
           disabled={!content.trim()}
           className="w-8 h-8 flex items-center justify-center rounded-ind transition-all"
           style={{
@@ -130,6 +236,7 @@ export function MessageInput({ onSend, placeholder }: MessageInputProps) {
             opacity: content.trim() ? 1 : 0.5,
           }}
           title="Send"
+          aria-label="Send message"
         >
           <Send size={14} />
         </button>

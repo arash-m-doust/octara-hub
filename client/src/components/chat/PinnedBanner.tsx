@@ -58,7 +58,8 @@ export function PinnedBanner() {
         </div>
         <p
           className="text-xs truncate mt-0.5"
-          style={{ color: 'var(--color-text-secondary)' }}
+          style={{ color: 'var(--color-text-secondary)', unicodeBidi: 'plaintext' }}
+          dir="auto"
         >
           {msg.content}
         </p>

@@ -75,6 +75,8 @@ export const workspaceApi = {
     api<{ invite_code: string }>(`/workspaces/${id}/invite/`, { method: 'POST' }),
   join: (invite_code: string) =>
     api<Workspace>('/workspaces/join/', { method: 'POST', body: { invite_code } }),
+  leave: (id: number) =>
+    api(`/workspaces/${id}/leave/`, { method: 'POST' }),
 
   // Members
   members: (id: number) => api<WorkspaceMember[]>(`/workspaces/${id}/members/`),

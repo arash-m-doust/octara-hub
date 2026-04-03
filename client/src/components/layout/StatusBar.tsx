@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useDMStore } from '@/stores/dmStore'
 import { useAuthStore } from '@/stores/authStore'
+import { realtime } from '@/realtime/connection'
 import { Wifi, Hash, Users } from 'lucide-react'
 
 export function StatusBar() {
@@ -9,6 +11,21 @@ export function StatusBar() {
   const { view } = useUIStore()
   const { currentThread } = useDMStore()
   const { user } = useAuthStore()
+  const [connState, setConnState] = useState(realtime.getState())
+
+  useEffect(() => {
+    const unsubscribe = realtime.onStateChange(setConnState)
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  const stateConfig = {
+    connected: { color: 'var(--color-led-online)', label: 'Connected', pulse: false },
+    reconnecting: { color: 'var(--color-led-idle)', label: 'Reconnecting...', pulse: true },
+    disconnected: { color: 'var(--color-led-dnd)', label: 'Disconnected', pulse: false },
+  } as const
+  const cfg = stateConfig[connState]
 
   const channelName = view === 'dm'
     ? (currentThread ? 'Direct Message' : 'DMs')
@@ -26,11 +43,11 @@ export function StatusBar() {
       {/* Connection LED */}
       <div className="flex items-center gap-1.5">
         <span
-          className="ind-led ind-led-on"
-          style={{ backgroundColor: 'var(--color-led-online)', width: '6px', height: '6px' }}
+          className={`ind-led ${cfg.pulse ? 'ind-led-pulse' : 'ind-led-on'}`}
+          style={{ backgroundColor: cfg.color, width: '6px', height: '6px' }}
         />
         <Wifi size={10} />
-        <span>Connected</span>
+        <span>{cfg.label}</span>
       </div>
 
       {/* Divider */}

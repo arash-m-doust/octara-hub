@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { workspaceApi, type Workspace, type Category, type Channel, type WorkspaceMember, type WorkspaceUser } from '@/api/workspaces'
 import { extractResults } from '@/api/client'
 import type { User } from '@/api/auth'
+import { toast } from '@/components/ui/Toast'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -49,6 +50,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to fetch workspaces:', err)
+      toast.error('Failed to load workspaces')
     }
   },
 

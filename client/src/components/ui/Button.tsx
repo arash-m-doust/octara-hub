@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes } from 'react'
+import { type ButtonHTMLAttributes, type CSSProperties } from 'react'
 import { clsx } from 'clsx'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -7,6 +7,29 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export function Button({ variant = 'default', size = 'md', className, children, ...props }: ButtonProps) {
+  const mergedStyle = {
+    ...(variant === 'danger'
+      ? {
+          background: 'linear-gradient(180deg, rgba(255,82,82,0.15) 0%, rgba(255,82,82,0.08) 100%)',
+          borderColor: 'rgba(255,82,82,0.3)',
+        }
+      : {}),
+    ...(variant === 'ghost'
+      ? {
+          background: 'transparent',
+          color: 'var(--color-text-secondary)',
+          border: '1px solid var(--color-border)',
+        }
+      : {}),
+    ...(props.disabled
+      ? {
+          opacity: 0.65,
+          cursor: 'not-allowed',
+        }
+      : {}),
+    ...(props.style ?? {}),
+  } as CSSProperties
+
   return (
     <button
       className={clsx(
@@ -14,7 +37,7 @@ export function Button({ variant = 'default', size = 'md', className, children, 
         {
           'ind-button': variant === 'default',
           'ind-button-primary': variant === 'primary',
-          'bg-transparent hover:bg-surface-inset px-3 py-1.5 text-sm cursor-pointer': variant === 'ghost',
+          'hover:bg-surface-inset px-3 py-1.5 text-sm cursor-pointer': variant === 'ghost',
           'ind-button text-error': variant === 'danger',
         },
         {
@@ -24,10 +47,7 @@ export function Button({ variant = 'default', size = 'md', className, children, 
         },
         className,
       )}
-      style={variant === 'danger' ? {
-        background: 'linear-gradient(180deg, rgba(255,82,82,0.15) 0%, rgba(255,82,82,0.08) 100%)',
-        borderColor: 'rgba(255,82,82,0.3)',
-      } : undefined}
+      style={mergedStyle}
       {...props}
     >
       {children}

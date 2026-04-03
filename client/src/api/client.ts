@@ -8,6 +8,22 @@ interface RequestOptions {
   headers?: Record<string, string>
 }
 
+export interface ApiError {
+  status: number
+  detail?: string
+  [key: string]: unknown
+}
+
+function toApiError(status: number, payload: unknown): ApiError {
+  if (payload && typeof payload === 'object') {
+    return { ...(payload as Record<string, unknown>), status }
+  }
+  return {
+    status,
+    detail: typeof payload === 'string' ? payload : 'Request failed',
+  }
+}
+
 // Helper to extract results from paginated or direct responses
 export function extractResults<T>(data: T | { results: T; count?: number }): T {
   if (data && typeof data === 'object' && 'results' in data) {
@@ -53,20 +69,29 @@ export async function api<T = unknown>(path: string, options: RequestOptions = {
     config.body = JSON.stringify(body)
   }
 
-  let res = await fetch(`${API_BASE}${path}`, config)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, config)
+  } catch {
+    throw toApiError(0, { detail: 'Network error' })
+  }
 
   // Auto-refresh on 401 keeps UX smooth across access token expiry.
   if (res.status === 401 && token) {
     const newToken = await refreshToken()
     if (newToken) {
       (config.headers as Record<string, string>).Authorization = `Bearer ${newToken}`
-      res = await fetch(`${API_BASE}${path}`, config)
+      try {
+        res = await fetch(`${API_BASE}${path}`, config)
+      } catch {
+        throw toApiError(0, { detail: 'Network error' })
+      }
     }
   }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
-    throw error
+    throw toApiError(res.status, error)
   }
 
   if (res.status === 204) return undefined as T
@@ -82,11 +107,16 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
     body: formData,
   }
 
-  const res = await fetch(`${API_BASE}${path}`, config)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, config)
+  } catch {
+    throw toApiError(0, { detail: 'Network error' })
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
-    throw error
+    throw toApiError(res.status, error)
   }
 
   return res.json()

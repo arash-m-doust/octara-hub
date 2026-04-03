@@ -11,10 +11,50 @@ type AuthView = 'login' | 'register' | 'forgot'
 
 export default function App() {
   const { i18n } = useTranslation()
-  const { isAuthenticated, user, fetchMe, logout } = useAuthStore()
+  const { isAuthenticated, fetchMe, logout } = useAuthStore()
   const [authView, setAuthView] = useState<AuthView>('login')
   const [initializing, setInitializing] = useState(authStorage.hasAccessToken())
+  const [restoreError, setRestoreError] = useState('')
   const initRef = useRef(false)
+
+  const attemptSessionRestore = async () => {
+    if (!authStorage.hasAccessToken()) {
+      setInitializing(false)
+      return
+    }
+
+    setInitializing(true)
+    setRestoreError('')
+    let attempt = 0
+
+    while (attempt < 3) {
+      try {
+        await fetchMe()
+        setRestoreError('')
+        setInitializing(false)
+        return
+      } catch (err: unknown) {
+        const status = (
+          err && typeof err === 'object' && 'status' in err
+            ? Number((err as { status?: unknown }).status)
+            : null
+        )
+        if (status === 401 || status === 403) {
+          setRestoreError('')
+          setInitializing(false)
+          return
+        }
+        attempt += 1
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
+          continue
+        }
+        setRestoreError('Unable to restore session right now. Your session is kept.')
+      }
+    }
+
+    setInitializing(false)
+  }
 
   // Set document direction based on language
   useEffect(() => {
@@ -31,7 +71,7 @@ export default function App() {
     authStorage.syncUrlWithStoredSession()
 
     if (authStorage.hasAccessToken()) {
-      fetchMe().finally(() => setInitializing(false))
+      void attemptSessionRestore()
     } else {
       setInitializing(false)
     }
@@ -44,6 +84,28 @@ export default function App() {
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm text-muted">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated && authStorage.hasAccessToken()) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-surface">
+        <div className="text-center space-y-3 max-w-sm px-4">
+          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted">Restoring session...</p>
+          {restoreError && (
+            <p className="text-xs text-error">{restoreError}</p>
+          )}
+          <div className="flex items-center justify-center gap-2">
+            <button className="ind-button text-xs" onClick={() => void attemptSessionRestore()}>
+              Retry
+            </button>
+            <button className="ind-button text-xs" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -65,7 +127,7 @@ export default function App() {
               onClick={() => i18n.changeLanguage('fa')}
               className={`text-xs px-2 py-1 rounded ${i18n.language === 'fa' ? 'bg-accent text-white' : 'text-muted hover:text-gray-600'}`}
             >
-              فارسی
+              Farsi
             </button>
           </div>
 

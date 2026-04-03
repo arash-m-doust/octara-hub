@@ -144,3 +144,45 @@ class DMMessageDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied('You can only delete your own messages.')
         instance.is_deleted = True
         instance.save(update_fields=['is_deleted'])
+
+
+class DMTypingView(APIView):
+    def post(self, request, thread_id):
+        if not DMParticipant.objects.filter(thread_id=thread_id, user=request.user).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Not a participant.')
+        publish_event(f'dm_{thread_id}', 'dm.typing.start', {
+            'thread_id': thread_id,
+            'user_id': request.user.id,
+            'username': request.user.username,
+        })
+        return Response(status=204)
+
+
+class DMThreadReadView(APIView):
+    def post(self, request, thread_id):
+        participant = DMParticipant.objects.filter(
+            thread_id=thread_id,
+            user=request.user,
+        ).first()
+        if not participant:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Not a participant.')
+
+        latest_message_id = Message.objects.filter(
+            dm_thread_id=thread_id,
+            is_deleted=False,
+        ).order_by('-id').values_list('id', flat=True).first()
+
+        if latest_message_id:
+            participant.last_read_message_id = latest_message_id
+            participant.save(update_fields=['last_read_message_id'])
+
+        return Response(
+            {
+                'thread_id': thread_id,
+                'last_read_message_id': latest_message_id,
+                'unread_count': 0,
+            },
+            status=status.HTTP_200_OK,
+        )

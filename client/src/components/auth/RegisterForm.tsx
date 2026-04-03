@@ -9,6 +9,21 @@ interface RegisterFormProps {
   onSwitchToLogin: () => void
 }
 
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: '', color: 'var(--color-border)' }
+  let score = 0
+  if (password.length >= 8) score += 1
+  if (password.length >= 12) score += 1
+  if (/[A-Z]/.test(password)) score += 1
+  if (/[0-9]/.test(password)) score += 1
+  if (/[^A-Za-z0-9]/.test(password)) score += 1
+
+  if (score <= 1) return { score, label: 'Weak', color: '#FF5252' }
+  if (score <= 2) return { score, label: 'Fair', color: 'var(--color-led-idle)' }
+  if (score <= 3) return { score, label: 'Good', color: 'var(--color-accent)' }
+  return { score, label: 'Strong', color: 'var(--color-led-online)' }
+}
+
 export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const { t } = useTranslation()
   const { register, login } = useAuthStore()
@@ -56,6 +71,28 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         <Input label={t('auth.username')} value={form.username} onChange={update('username')} autoFocus />
         <Input label={t('auth.email')} type="email" value={form.email} onChange={update('email')} />
         <Input label={t('auth.password')} type="password" value={form.password} onChange={update('password')} />
+        {form.password && (() => {
+          const strength = getPasswordStrength(form.password)
+          return (
+            <div style={{ marginTop: -8 }}>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 3,
+                      borderRadius: 2,
+                      background: i <= strength.score ? strength.color : 'var(--color-border)',
+                      transition: 'background .3s',
+                    }}
+                  />
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: strength.color }}>{strength.label}</p>
+            </div>
+          )
+        })()}
         <Input label={t('auth.confirmPassword')} type="password" value={form.password_confirm} onChange={update('password_confirm')} />
         {error && <p className="text-sm text-error">{error}</p>}
         <Button variant="primary" type="submit" className="w-full" disabled={loading}>

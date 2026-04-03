@@ -1,5 +1,7 @@
 """Workspace integration tests for RBAC and membership flows."""
 
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
@@ -459,3 +461,185 @@ class WorkspaceFinalRBACTests(APITestCase):
             format='json',
         )
         self.assertEqual(invalid_role.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class WorkspaceLeaveTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='owner-leave',
+            email='owner-leave@example.com',
+            password='Password123!@#',
+        )
+        self.member = User.objects.create_user(
+            username='member-leave',
+            email='member-leave@example.com',
+            password='Password123!@#',
+        )
+        self.outsider = User.objects.create_user(
+            username='outsider-leave',
+            email='outsider-leave@example.com',
+            password='Password123!@#',
+        )
+
+        self.workspace = Workspace.objects.create(name='Leave Scope', owner=self.owner)
+        ensure_workspace_defaults(self.workspace, self.owner)
+        default_role, _ = ensure_workspace_core_roles(self.workspace)
+        WorkspaceMember.objects.update_or_create(
+            workspace=self.workspace,
+            user=self.member,
+            defaults={'role': default_role},
+        )
+
+    def test_regular_member_can_leave_workspace(self):
+        self.client.force_authenticate(user=self.member)
+        url = reverse('workspace_leave', kwargs={'workspace_id': self.workspace.id})
+
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            WorkspaceMember.objects.filter(
+                workspace=self.workspace,
+                user=self.member,
+            ).exists()
+        )
+
+    def test_owner_cannot_leave_workspace(self):
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('workspace_leave', kwargs={'workspace_id': self.workspace.id})
+
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_member_gets_not_found(self):
+        self.client.force_authenticate(user=self.outsider)
+        url = reverse('workspace_leave', kwargs={'workspace_id': self.workspace.id})
+
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class WorkspaceRealtimeEventTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='rt-owner',
+            email='rt-owner@example.com',
+            password='Password123!@#',
+            is_staff=True,
+        )
+        self.member = User.objects.create_user(
+            username='rt-member',
+            email='rt-member@example.com',
+            password='Password123!@#',
+        )
+        self.workspace = Workspace.objects.create(name='Realtime', owner=self.owner)
+        ensure_workspace_defaults(self.workspace, self.owner)
+        default_role, _ = ensure_workspace_core_roles(self.workspace)
+        WorkspaceMember.objects.update_or_create(
+            workspace=self.workspace,
+            user=self.member,
+            defaults={'role': default_role},
+        )
+
+    def test_workspace_create_publishes_workspace_created_events(self):
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('workspace_list_create')
+        with patch('apps.workspaces.views.publish_event') as mocked_publish:
+            response = self.client.post(url, {'name': 'Realtime Create'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_id = response.data['id']
+        self.assertTrue(
+            any(
+                c.args[0] == f'workspace_{created_id}' and c.args[1] == 'workspace.created'
+                for c in mocked_publish.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                c.args[0] == f'user_{self.owner.id}' and c.args[1] == 'workspace.created'
+                for c in mocked_publish.call_args_list
+            )
+        )
+
+    def test_invite_publishes_workspace_invited_and_member_added(self):
+        invitee = User.objects.create_user(
+            username='rt-invitee',
+            email='rt-invitee@example.com',
+            password='Password123!@#',
+        )
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('workspace_member_invite', kwargs={'workspace_id': self.workspace.id})
+
+        with patch('apps.workspaces.views.publish_event') as mocked_publish:
+            response = self.client.post(url, {'user_id': invitee.id}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            any(
+                c.args[0] == f'user_{invitee.id}' and c.args[1] == 'workspace.invited'
+                for c in mocked_publish.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                c.args[0] == f'workspace_{self.workspace.id}' and c.args[1] == 'workspace.member.added'
+                for c in mocked_publish.call_args_list
+            )
+        )
+
+    def test_join_publishes_workspace_invited_and_member_added(self):
+        joiner = User.objects.create_user(
+            username='rt-joiner',
+            email='rt-joiner@example.com',
+            password='Password123!@#',
+        )
+        self.client.force_authenticate(user=joiner)
+        url = reverse('workspace_join')
+
+        with patch('apps.workspaces.views.publish_event') as mocked_publish:
+            response = self.client.post(url, {'invite_code': self.workspace.invite_code}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            any(
+                c.args[0] == f'user_{joiner.id}' and c.args[1] == 'workspace.invited'
+                for c in mocked_publish.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                c.args[0] == f'workspace_{self.workspace.id}' and c.args[1] == 'workspace.member.added'
+                for c in mocked_publish.call_args_list
+            )
+        )
+
+    def test_category_and_channel_create_publish_workspace_events(self):
+        self.client.force_authenticate(user=self.owner)
+        category_url = reverse('category_list_create', kwargs={'workspace_id': self.workspace.id})
+        channel_url = reverse('channel_list_create', kwargs={'workspace_id': self.workspace.id})
+
+        with patch('apps.workspaces.views.publish_event') as mocked_publish:
+            category_response = self.client.post(category_url, {'name': 'Realtime Cat'}, format='json')
+            channel_response = self.client.post(
+                channel_url,
+                {'name': 'realtime-room', 'category': category_response.data['id']},
+                format='json',
+            )
+
+        self.assertEqual(category_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(channel_response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            any(
+                c.args[0] == f'workspace_{self.workspace.id}' and c.args[1] == 'category.created'
+                for c in mocked_publish.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                c.args[0] == f'workspace_{self.workspace.id}' and c.args[1] == 'channel.created'
+                for c in mocked_publish.call_args_list
+            )
+        )

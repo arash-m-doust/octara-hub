@@ -7,6 +7,7 @@ urlpatterns = [
     path('join/', views.JoinWorkspaceView.as_view(), name='workspace_join'),
     path('<int:workspace_id>/', views.WorkspaceDetailView.as_view(), name='workspace_detail'),
     path('<int:workspace_id>/invite/', views.WorkspaceInviteView.as_view(), name='workspace_invite'),
+    path('<int:workspace_id>/leave/', views.LeaveWorkspaceView.as_view(), name='workspace_leave'),
 
     # Members
     path('<int:workspace_id>/members/', views.WorkspaceMemberListView.as_view(), name='workspace_members'),

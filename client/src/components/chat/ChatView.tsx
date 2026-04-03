@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useMessageStore } from '@/stores/messageStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useAuthStore } from '@/stores/authStore'
 import { realtime } from '@/realtime/connection'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
@@ -16,6 +17,8 @@ export function ChatView() {
   const { currentChannel } = useWorkspaceStore()
   const { fetchMessages, addMessage, fetchPinnedMessages, clear } = useMessageStore()
   const { toggleRightPanel } = useUIStore()
+  const { user: currentUser } = useAuthStore()
+  const [typingUsers, setTypingUsers] = useState<{ userId: number; username: string; expiresAt: number }[]>([])
 
   useEffect(() => {
     if (!currentChannel) return
@@ -35,13 +38,25 @@ export function ChatView() {
       realtime.on('message.unpinned', () => {
         if (currentChannel) fetchPinnedMessages(currentChannel.id)
       }),
+      realtime.on('typing.start', (data: unknown) => {
+        const { user_id, username } = data as { user_id: number; username: string }
+        if (user_id === currentUser?.id) return
+        setTypingUsers((prev) => {
+          const filtered = prev.filter((u) => u.userId !== user_id)
+          return [...filtered, { userId: user_id, username, expiresAt: Date.now() + 3000 }]
+        })
+        setTimeout(() => {
+          setTypingUsers((prev) => prev.filter((u) => u.expiresAt > Date.now()))
+        }, 3100)
+      }),
     ]
 
     return () => {
       unsubs.forEach((u) => u())
       clear()
+      setTypingUsers([])
     }
-  }, [currentChannel?.id, fetchMessages, fetchPinnedMessages, addMessage, clear])
+  }, [currentChannel?.id, fetchMessages, fetchPinnedMessages, addMessage, clear, currentUser?.id])
 
   if (!currentChannel) return null
 
@@ -69,16 +84,16 @@ export function ChatView() {
         </div>
         <div className="flex items-center gap-1">
           <CallButton channelId={currentChannel.id} />
-          <button onClick={() => toggleRightPanel('pinned')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('chat.pinned')}>
+          <button onClick={() => toggleRightPanel('pinned')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('chat.pinned')} aria-label="View pinned messages">
             <Pin size={14} />
           </button>
-          <button onClick={() => toggleRightPanel('members')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('workspace.members')}>
+          <button onClick={() => toggleRightPanel('members')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('workspace.members')} aria-label="View members">
             <Users size={14} />
           </button>
-          <button onClick={() => toggleRightPanel('files')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('files.browser')}>
+          <button onClick={() => toggleRightPanel('files')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('files.browser')} aria-label="Browse files">
             <FolderOpen size={14} />
           </button>
-          <button onClick={() => toggleRightPanel('search')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title={t('search.placeholder')}>
+          <button onClick={() => toggleRightPanel('search')} className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted" title="Search (Cmd/Ctrl+K)" aria-label="Search messages">
             <Search size={14} />
           </button>
         </div>
@@ -90,6 +105,14 @@ export function ChatView() {
       {/* Messages */}
       <MessageList />
 
+      {typingUsers.length > 0 && (
+        <div className="px-4 pb-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <span className="animate-pulse">...</span>{' '}
+          {typingUsers.map((u) => u.username).join(', ')}{' '}
+          {typingUsers.length === 1 ? 'is' : 'are'} typing...
+        </div>
+      )}
+
       {/* Input */}
       <MessageInput
         onSend={(content) => {
@@ -97,7 +120,9 @@ export function ChatView() {
           sendMessage(currentChannel.id, content, replyTo?.id)
         }}
         placeholder={`${t('chat.typeMessage')} #${currentChannel.name}`}
+        uploadTarget={{ type: 'channel', id: currentChannel.id }}
       />
     </>
   )
 }
+

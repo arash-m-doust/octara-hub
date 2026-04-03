@@ -35,7 +35,7 @@ export function CallOverlay() {
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-4 end-4 z-50 cursor-pointer"
+        className="fixed bottom-20 md:bottom-4 end-4 z-50 cursor-pointer"
         onClick={() => setIsMinimized(false)}
       >
         <div
@@ -123,7 +123,17 @@ export function CallOverlay() {
           }}
         >
           {hasVideo ? (
-            <div className="w-full h-full flex flex-wrap items-center justify-center gap-3 p-4">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: 12,
+                padding: 16,
+                width: '100%',
+                alignItems: 'center',
+                justifyItems: 'center',
+              }}
+            >
               {/* Remote streams */}
               {Array.from(remoteStreams.entries()).map(([userId, stream]) => (
                 <RemoteVideo key={userId} stream={stream} userId={userId} />
@@ -149,9 +159,11 @@ export function CallOverlay() {
               {/* Local video (small overlay) */}
               {!isVideoOff && (
                 <div
-                  className="absolute bottom-4 end-4 w-40 h-30 rounded-lg overflow-hidden"
+                  className="absolute bottom-4 end-4 w-40 rounded-lg overflow-hidden"
                   style={{
+                    height: 120,
                     border: '2px solid var(--color-accent)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
                     boxShadow: '0 4px 12px var(--color-metal-shadow), 0 0 8px var(--color-accent-glow)',
                   }}
                 >
@@ -160,7 +172,7 @@ export function CallOverlay() {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     style={{ transform: 'scaleX(-1)' }}
                   />
                 </div>
@@ -262,13 +274,15 @@ function RemoteVideo({ stream, userId }: { stream: MediaStream; userId: number }
     <div
       className="relative rounded-lg overflow-hidden"
       style={{
-        width: 320,
-        height: 240,
+        width: '100%',
+        maxWidth: 480,
+        aspectRatio: '4/3',
         border: '2px solid var(--color-border)',
-        boxShadow: '0 4px 12px var(--color-metal-shadow), inset 0 1px 0 var(--color-metal-highlight)',
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        boxShadow: '0 4px 12px var(--color-metal-shadow)',
       }}
     >
-      <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
+      <video ref={ref} autoPlay playsInline className="w-full h-full object-contain" />
     </div>
   )
 }

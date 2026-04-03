@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuthStore } from '@/stores/authStore'
+import { toast } from '@/components/ui/Toast'
 import { Lock, FolderPlus, Plus, ChevronDown } from 'lucide-react'
 
 interface ChannelSidebarProps {
@@ -88,6 +89,7 @@ export function ChannelSidebar({ width = 240 }: ChannelSidebarProps) {
       setMobileMenuOpen(false)
     } catch (err) {
       console.error('Failed to open/create DM:', err)
+      toast.error('Failed to open or create conversation')
     }
   }
 
@@ -112,6 +114,8 @@ export function ChannelSidebar({ width = 240 }: ChannelSidebarProps) {
             placeholder="Search people or conversations..."
             value={dmSearch}
             onChange={(e) => setDmSearch(e.target.value)}
+            dir="auto"
+            style={{ unicodeBidi: 'plaintext' }}
           />
 
           <div>
@@ -143,7 +147,7 @@ export function ChannelSidebar({ width = 240 }: ChannelSidebarProps) {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-text-primary)' }}>{displayName}</div>
                       {thread.last_message && (
-                        <div className="text-xs text-muted truncate">{thread.last_message.content}</div>
+                        <div className="text-xs text-muted truncate" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{thread.last_message.content}</div>
                       )}
                     </div>
                     <Badge count={thread.unread_count} />
@@ -226,6 +230,7 @@ export function ChannelSidebar({ width = 240 }: ChannelSidebarProps) {
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'detail' in err ? String((err as { detail: string }).detail) : 'Failed to create channel'
       setError(msg)
+      toast.error(msg)
     }
   }
 
@@ -240,6 +245,7 @@ export function ChannelSidebar({ width = 240 }: ChannelSidebarProps) {
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'detail' in err ? String((err as { detail: string }).detail) : 'Failed to create category'
       setError(msg)
+      toast.error(msg)
     }
   }
 

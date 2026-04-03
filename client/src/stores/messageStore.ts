@@ -114,17 +114,81 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   },
 
   addReaction: async (channelId, messageId, emoji) => {
-    await messageApi.addReaction(channelId, messageId, emoji)
-    // Refetch messages to get updated reaction counts
-    const { messages } = get()
-    if (messages.length > 0) {
-      const res = await messageApi.list(channelId)
-      set({ messages: res.results.reverse() })
+    // Optimistic update first
+    set((s) => ({
+      messages: s.messages.map((m) => {
+        if (m.id !== messageId) return m
+        const existing = m.reactions.find((r) => r.emoji === emoji)
+        if (existing) {
+          return {
+            ...m,
+            reactions: m.reactions.map((r) => (
+              r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r
+            )),
+          }
+        }
+        return {
+          ...m,
+          reactions: [...m.reactions, { emoji, count: 1, reacted: true }],
+        }
+      }),
+    }))
+    try {
+      await messageApi.addReaction(channelId, messageId, emoji)
+    } catch (err) {
+      // Rollback on error
+      set((s) => ({
+        messages: s.messages.map((m) => {
+          if (m.id !== messageId) return m
+          return {
+            ...m,
+            reactions: m.reactions
+              .map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r))
+              .filter((r) => r.count > 0),
+          }
+        }),
+      }))
+      throw err
     }
   },
 
   removeReaction: async (channelId, messageId, emoji) => {
-    await messageApi.removeReaction(channelId, messageId, emoji)
+    // Optimistic update first
+    set((s) => ({
+      messages: s.messages.map((m) => {
+        if (m.id !== messageId) return m
+        return {
+          ...m,
+          reactions: m.reactions
+            .map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r))
+            .filter((r) => r.count > 0),
+        }
+      }),
+    }))
+    try {
+      await messageApi.removeReaction(channelId, messageId, emoji)
+    } catch (err) {
+      // Rollback on error
+      set((s) => ({
+        messages: s.messages.map((m) => {
+          if (m.id !== messageId) return m
+          const existing = m.reactions.find((r) => r.emoji === emoji)
+          if (existing) {
+            return {
+              ...m,
+              reactions: m.reactions.map((r) => (
+                r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r
+              )),
+            }
+          }
+          return {
+            ...m,
+            reactions: [...m.reactions, { emoji, count: 1, reacted: true }],
+          }
+        }),
+      }))
+      throw err
+    }
   },
 
   pinMessage: async (channelId, messageId) => {

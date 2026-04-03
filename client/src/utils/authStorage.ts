@@ -13,6 +13,8 @@ const LEGACY_PREFIX = 'bexchat'
 
 const SESSION_STORAGE_KEY = 'octara_hub_session_key'
 const LEGACY_SESSION_STORAGE_KEY = 'bexchat_session_key'
+const SESSION_PERSIST_KEY = 'octara_hub_session_key_persistent'
+const LEGACY_SESSION_PERSIST_KEY = 'bexchat_session_key_persistent'
 
 type TokenName = 'access_token' | 'refresh_token'
 
@@ -33,7 +35,15 @@ function readStoredSession(): string | null {
 
   const current = sessionStorage.getItem(SESSION_STORAGE_KEY)
   if (current && current.trim()) {
+    localStorage.setItem(SESSION_PERSIST_KEY, normalizeSessionKey(current))
     return normalizeSessionKey(current)
+  }
+
+  const persisted = localStorage.getItem(SESSION_PERSIST_KEY)
+  if (persisted && persisted.trim()) {
+    const normalized = normalizeSessionKey(persisted)
+    sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
+    return normalized
   }
 
   // Legacy fallback for one transition release.
@@ -42,7 +52,25 @@ function readStoredSession(): string | null {
     const normalized = normalizeSessionKey(legacy)
     sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
     sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY)
+    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
+    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
     return normalized
+  }
+
+  const legacyPersisted = localStorage.getItem(LEGACY_SESSION_PERSIST_KEY)
+  if (legacyPersisted && legacyPersisted.trim()) {
+    const normalized = normalizeSessionKey(legacyPersisted)
+    sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
+    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
+    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
+    return normalized
+  }
+
+  const discovered = discoverSessionFromTokenKeys()
+  if (discovered) {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, discovered)
+    localStorage.setItem(SESSION_PERSIST_KEY, discovered)
+    return discovered
   }
 
   return null
@@ -53,6 +81,8 @@ function storeSession(sessionKey: string): string {
   if (typeof window !== 'undefined') {
     sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
     sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY)
+    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
+    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
   }
   return normalized
 }
@@ -83,6 +113,46 @@ function resolveSessionKey(): string {
 
 function keyForPrefix(prefix: string, name: TokenName, sessionKey: string): string {
   return `${prefix}:${normalizeSessionKey(sessionKey)}:${name}`
+}
+
+function parseTokenKey(key: string, prefix: string, name: TokenName): string | null {
+  const lead = `${prefix}:`
+  const tail = `:${name}`
+  if (!key.startsWith(lead) || !key.endsWith(tail)) return null
+  const rawSession = key.slice(lead.length, key.length - tail.length)
+  if (!rawSession) return null
+  return normalizeSessionKey(rawSession)
+}
+
+function discoverSessionFromTokenKeys(): string | null {
+  if (typeof window === 'undefined') return null
+  const candidates: string[] = []
+
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const tokenKey = localStorage.key(i)
+    if (!tokenKey) continue
+    const current = parseTokenKey(tokenKey, CURRENT_PREFIX, 'access_token')
+    if (current) {
+      candidates.push(current)
+      continue
+    }
+    const legacy = parseTokenKey(tokenKey, LEGACY_PREFIX, 'access_token')
+    if (legacy) {
+      candidates.push(legacy)
+    }
+  }
+
+  if (candidates.length === 0) return null
+
+  const deduped = Array.from(new Set(candidates))
+  const persisted = localStorage.getItem(SESSION_PERSIST_KEY)
+  if (persisted) {
+    const normalized = normalizeSessionKey(persisted)
+    if (deduped.includes(normalized)) return normalized
+  }
+
+  if (deduped.includes(DEFAULT_SESSION_KEY)) return DEFAULT_SESSION_KEY
+  return deduped[0]
 }
 
 function key(name: TokenName): string {

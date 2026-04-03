@@ -7,7 +7,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, className, ...props }, ref) => {
+  ({ label, error, className, dir, style, ...props }, ref) => {
     return (
       <div className="space-y-1">
         {label && (
@@ -22,6 +22,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             error && 'border-error',
             className,
           )}
+          dir={dir ?? 'auto'}
+          style={{ unicodeBidi: 'plaintext', ...style }}
           {...props}
         />
         {error && <p className="text-xs text-error">{error}</p>}
