@@ -13,6 +13,7 @@ class RealtimeConnection {
 
   onStateChange(listener: (state: ConnectionState) => void) {
     this.stateListeners.add(listener)
+    listener(this.state)
     return () => {
       this.stateListeners.delete(listener)
     }
@@ -39,7 +40,7 @@ class RealtimeConnection {
     // Rebuild connection from scratch to avoid duplicated listeners.
     this.disconnect()
     this.setState('reconnecting')
-    this.eventSource = new EventSource(`/api/realtime/events/?token=${token}`)
+    this.eventSource = new EventSource(`/api/realtime/events/?token=${encodeURIComponent(token)}`)
 
     this.eventSource.onmessage = (event) => {
       try {

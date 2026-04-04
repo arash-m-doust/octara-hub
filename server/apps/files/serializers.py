@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Attachment
+from .storage import is_office_document
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -19,7 +20,12 @@ class AttachmentSerializer(serializers.ModelSerializer):
         return f'/files/{obj.id}/'
 
     def get_preview_url(self, obj):
-        # For images, always return preview URL (view serves original if no thumbnail)
-        if obj.preview_path or obj.mime_type.startswith('image/'):
+        # For images and PDFs, preview endpoint can serve the original file directly.
+        if (
+            obj.preview_path
+            or obj.mime_type.startswith('image/')
+            or 'pdf' in obj.mime_type
+            or is_office_document(obj.mime_type, obj.original_filename)
+        ):
             return f'/files/{obj.id}/preview/'
         return None

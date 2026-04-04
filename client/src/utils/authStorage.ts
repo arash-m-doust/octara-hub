@@ -1,6 +1,7 @@
-﻿// Session-aware token storage.
-// Invariant: token keys are namespaced by `?session=<key>` so two users can
+// Session-aware token storage.
+// Invariant: token keys are namespaced by an internal session key so two users can
 // stay logged in simultaneously on the same browser/origin without collisions.
+// Authenticated tabs include ?session=<username> so each tab can isolate users.
 //
 // Compatibility note:
 // We keep one-release backward reads from legacy `bexchat:*` keys and migrate
@@ -13,13 +14,11 @@ const LEGACY_PREFIX = 'bexchat'
 
 const SESSION_STORAGE_KEY = 'octara_hub_session_key'
 const LEGACY_SESSION_STORAGE_KEY = 'bexchat_session_key'
-const SESSION_PERSIST_KEY = 'octara_hub_session_key_persistent'
-const LEGACY_SESSION_PERSIST_KEY = 'bexchat_session_key_persistent'
 
 type TokenName = 'access_token' | 'refresh_token'
 
 function normalizeSessionKey(raw: string): string {
-  const normalized = raw.trim().replace(/[^a-zA-Z0-9._@+-]/g, '-')
+  const normalized = raw.trim().toLowerCase().replace(/[^a-z0-9._@+-]/g, '-')
   return normalized || DEFAULT_SESSION_KEY
 }
 
@@ -35,15 +34,7 @@ function readStoredSession(): string | null {
 
   const current = sessionStorage.getItem(SESSION_STORAGE_KEY)
   if (current && current.trim()) {
-    localStorage.setItem(SESSION_PERSIST_KEY, normalizeSessionKey(current))
     return normalizeSessionKey(current)
-  }
-
-  const persisted = localStorage.getItem(SESSION_PERSIST_KEY)
-  if (persisted && persisted.trim()) {
-    const normalized = normalizeSessionKey(persisted)
-    sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
-    return normalized
   }
 
   // Legacy fallback for one transition release.
@@ -52,25 +43,7 @@ function readStoredSession(): string | null {
     const normalized = normalizeSessionKey(legacy)
     sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
     sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY)
-    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
-    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
     return normalized
-  }
-
-  const legacyPersisted = localStorage.getItem(LEGACY_SESSION_PERSIST_KEY)
-  if (legacyPersisted && legacyPersisted.trim()) {
-    const normalized = normalizeSessionKey(legacyPersisted)
-    sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
-    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
-    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
-    return normalized
-  }
-
-  const discovered = discoverSessionFromTokenKeys()
-  if (discovered) {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, discovered)
-    localStorage.setItem(SESSION_PERSIST_KEY, discovered)
-    return discovered
   }
 
   return null
@@ -81,10 +54,23 @@ function storeSession(sessionKey: string): string {
   if (typeof window !== 'undefined') {
     sessionStorage.setItem(SESSION_STORAGE_KEY, normalized)
     sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY)
-    localStorage.setItem(SESSION_PERSIST_KEY, normalized)
-    localStorage.removeItem(LEGACY_SESSION_PERSIST_KEY)
   }
   return normalized
+}
+
+function createAnonymousSessionKey(): string {
+  if (typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function') {
+    return `tab-${window.crypto.randomUUID().slice(0, 8)}`
+  }
+  return `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function removeUrlSessionParam(): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has(SESSION_QUERY_PARAM)) return
+  url.searchParams.delete(SESSION_QUERY_PARAM)
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
 function replaceUrlSession(sessionKey: string): void {
@@ -99,7 +85,8 @@ function replaceUrlSession(sessionKey: string): void {
 
 function resolveSessionKey(): string {
   // Priority order keeps tab identity deterministic:
-  // URL -> tab sessionStorage -> default.
+  // URL (if provided) -> tab sessionStorage -> per-tab generated key.
+
   const urlSession = readSessionFromUrl()
   if (urlSession) {
     return storeSession(urlSession)
@@ -108,7 +95,7 @@ function resolveSessionKey(): string {
   const storedSession = readStoredSession()
   if (storedSession) return storedSession
 
-  return DEFAULT_SESSION_KEY
+  return storeSession(createAnonymousSessionKey())
 }
 
 function keyForPrefix(prefix: string, name: TokenName, sessionKey: string): string {
@@ -124,35 +111,25 @@ function parseTokenKey(key: string, prefix: string, name: TokenName): string | n
   return normalizeSessionKey(rawSession)
 }
 
-function discoverSessionFromTokenKeys(): string | null {
-  if (typeof window === 'undefined') return null
-  const candidates: string[] = []
-
+function migrateCaseInsensitiveToken(prefix: string, name: TokenName, sessionKey: string, targetKey: string): string | null {
+  const normalizedTarget = normalizeSessionKey(sessionKey)
   for (let i = 0; i < localStorage.length; i += 1) {
-    const tokenKey = localStorage.key(i)
-    if (!tokenKey) continue
-    const current = parseTokenKey(tokenKey, CURRENT_PREFIX, 'access_token')
-    if (current) {
-      candidates.push(current)
-      continue
+    const candidateKey = localStorage.key(i)
+    if (!candidateKey) continue
+    const candidateSession = parseTokenKey(candidateKey, prefix, name)
+    if (!candidateSession) continue
+    if (candidateSession !== normalizedTarget) continue
+    const value = localStorage.getItem(candidateKey)
+    if (!value) continue
+    if (!localStorage.getItem(targetKey)) {
+      localStorage.setItem(targetKey, value)
     }
-    const legacy = parseTokenKey(tokenKey, LEGACY_PREFIX, 'access_token')
-    if (legacy) {
-      candidates.push(legacy)
+    if (candidateKey !== targetKey) {
+      localStorage.removeItem(candidateKey)
     }
+    return value
   }
-
-  if (candidates.length === 0) return null
-
-  const deduped = Array.from(new Set(candidates))
-  const persisted = localStorage.getItem(SESSION_PERSIST_KEY)
-  if (persisted) {
-    const normalized = normalizeSessionKey(persisted)
-    if (deduped.includes(normalized)) return normalized
-  }
-
-  if (deduped.includes(DEFAULT_SESSION_KEY)) return DEFAULT_SESSION_KEY
-  return deduped[0]
+  return null
 }
 
 function key(name: TokenName): string {
@@ -164,37 +141,47 @@ function readTokenWithFallback(name: TokenName, sessionKey: string): string | nu
   const currentValue = localStorage.getItem(currentKey)
   if (currentValue) return currentValue
 
+  const migratedCurrent = migrateCaseInsensitiveToken(CURRENT_PREFIX, name, sessionKey, currentKey)
+  if (migratedCurrent) return migratedCurrent
+
   const legacyKey = keyForPrefix(LEGACY_PREFIX, name, sessionKey)
   const legacyValue = localStorage.getItem(legacyKey)
-  if (!legacyValue) return null
+  if (legacyValue) {
+    // Silent migration path from old namespace to new namespace.
+    localStorage.setItem(currentKey, legacyValue)
+    localStorage.removeItem(legacyKey)
+    return legacyValue
+  }
 
-  // Silent migration path from old namespace to new namespace.
-  localStorage.setItem(currentKey, legacyValue)
+  const migratedLegacy = migrateCaseInsensitiveToken(LEGACY_PREFIX, name, sessionKey, legacyKey)
+  if (!migratedLegacy) return null
+  localStorage.setItem(currentKey, migratedLegacy)
   localStorage.removeItem(legacyKey)
-  return legacyValue
-}
-
-function keyForSession(name: TokenName, sessionKey: string): string {
-  return keyForPrefix(CURRENT_PREFIX, name, sessionKey)
+  return migratedLegacy
 }
 
 export const authStorage = {
   setSessionFromUsername(username: string): string {
-    // Login path: bind tab namespace to username and sync URL.
+    // Login path: bind tab namespace to username and expose it in URL for tab isolation.
     const sessionKey = storeSession(username)
     replaceUrlSession(sessionKey)
     return sessionKey
   },
 
   syncUrlWithStoredSession(): void {
+    // Keep URL session when its token exists; otherwise clean stale query params.
     const urlSession = readSessionFromUrl()
     if (urlSession) {
       storeSession(urlSession)
+      if (readTokenWithFallback('access_token', urlSession)) return
+      removeUrlSessionParam()
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
       return
     }
-    const stored = readStoredSession()
-    if (stored) {
-      replaceUrlSession(stored)
+
+    const storedSession = readStoredSession()
+    if (storedSession && readTokenWithFallback('access_token', storedSession)) {
+      replaceUrlSession(storedSession)
     }
   },
 
@@ -213,6 +200,10 @@ export const authStorage = {
         const sourceKey = keyForPrefix(prefix, name, currentSession)
         const value = localStorage.getItem(sourceKey)
         if (!value) return
+        // When current and target sessions resolve to the same namespace,
+        // sourceKey can be exactly the same as targetKey. In that case we must
+        // keep the token instead of removing it.
+        if (sourceKey === targetKey) return
         if (!localStorage.getItem(targetKey)) {
           localStorage.setItem(targetKey, value)
         }
@@ -246,6 +237,7 @@ export const authStorage = {
     localStorage.removeItem(keyForPrefix(CURRENT_PREFIX, 'refresh_token', sessionKey))
     localStorage.removeItem(keyForPrefix(LEGACY_PREFIX, 'access_token', sessionKey))
     localStorage.removeItem(keyForPrefix(LEGACY_PREFIX, 'refresh_token', sessionKey))
+    removeUrlSessionParam()
   },
 
   hasAccessToken(): boolean {

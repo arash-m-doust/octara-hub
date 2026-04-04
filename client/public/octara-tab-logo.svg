@@ -1,0 +1,18 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tabBg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E2434"/>
+      <stop offset="1" stop-color="#111722"/>
+    </linearGradient>
+    <linearGradient id="tabAccent" x1="20" y1="16" x2="45" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#62F0FF"/>
+      <stop offset="1" stop-color="#22B6D6"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#tabBg)"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="15.5" stroke="#3A445C"/>
+  <circle cx="32" cy="32" r="14" stroke="url(#tabAccent)" stroke-width="3"/>
+  <path d="M26 35L32 25L38 35C38.8 36.2 37.9 38 36.4 38H27.6C26.1 38 25.2 36.2 26 35Z" fill="url(#tabAccent)"/>
+  <circle cx="32" cy="32" r="2.8" fill="#E7FDFF"/>
+</svg>

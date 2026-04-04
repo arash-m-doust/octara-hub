@@ -1,7 +1,8 @@
-﻿import { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMessageStore } from '@/stores/messageStore'
 import { useDMStore } from '@/stores/dmStore'
+import { EmojiPicker } from '@/components/chat/EmojiPicker'
 import { dmApi } from '@/api/dm'
 import { fileApi } from '@/api/files'
 import { messageApi } from '@/api/messages'
@@ -19,8 +20,6 @@ interface MessageInputProps {
   uploadTarget: UploadTarget
 }
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024
-
 export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInputProps) {
   const { t } = useTranslation()
   const [content, setContent] = useState('')
@@ -28,9 +27,15 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const { replyTo, setReplyTo, fetchMessages: fetchChannelMessages } = useMessageStore()
-  const { fetchMessages: fetchDMMessages } = useDMStore()
+  const {
+    fetchMessages: fetchDMMessages,
+    replyTo: dmReplyTo,
+    setReplyTo: setDmReplyTo,
+  } = useDMStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeReply = uploadTarget.type === 'dm' ? dmReplyTo : replyTo
 
   const handleSend = async () => {
     if (!content.trim()) return
@@ -52,14 +57,48 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
     }
   }
 
-  const uploadFile = async (file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      const msg = 'File too large. Maximum size is 50MB.'
-      setError(msg)
-      toast.error(msg)
+  const notifyTyping = () => {
+    if (!typingTimer.current) {
+      if (uploadTarget.type === 'channel') {
+        messageApi.typing(uploadTarget.id).catch(() => {})
+      } else {
+        dmApi.typing(uploadTarget.id).catch(() => {})
+      }
+    }
+    if (typingTimer.current) {
+      clearTimeout(typingTimer.current)
+    }
+    typingTimer.current = setTimeout(() => {
+      typingTimer.current = null
+    }, 2000)
+  }
+
+  const handleEmojiInsert = (emoji: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      setContent((prev) => `${prev}${emoji}`)
+      notifyTyping()
       return
     }
 
+    const start = textarea.selectionStart ?? textarea.value.length
+    const end = textarea.selectionEnd ?? textarea.value.length
+
+    setContent((prev) => {
+      const safeStart = Math.min(start, prev.length)
+      const safeEnd = Math.min(end, prev.length)
+      return `${prev.slice(0, safeStart)}${emoji}${prev.slice(safeEnd)}`
+    })
+    notifyTyping()
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const caret = start + emoji.length
+      textarea.setSelectionRange(caret, caret)
+    })
+  }
+
+  const uploadFile = async (file: File) => {
     setUploading(true)
     setError('')
 
@@ -128,20 +167,7 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value)
-
-    if (!typingTimer.current) {
-      if (uploadTarget.type === 'channel') {
-        messageApi.typing(uploadTarget.id).catch(() => {})
-      } else {
-        dmApi.typing(uploadTarget.id).catch(() => {})
-      }
-    }
-    if (typingTimer.current) {
-      clearTimeout(typingTimer.current)
-    }
-    typingTimer.current = setTimeout(() => {
-      typingTimer.current = null
-    }, 2000)
+    notifyTyping()
   }
 
   return (
@@ -166,7 +192,7 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
       )}
 
       {/* Reply indicator */}
-      {replyTo && (
+      {activeReply && (
         <div
           className="flex items-center gap-2 mb-1 px-3 py-1.5 text-xs"
           style={{
@@ -177,10 +203,19 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
         >
           <span style={{ color: 'var(--color-accent)' }}>Replying to</span>
           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {replyTo.user.profile?.display_name || replyTo.user.username}
+            {activeReply.user.profile?.display_name || activeReply.user.username}
           </span>
-          <span className="text-muted truncate flex-1" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{replyTo.content}</span>
-          <button onClick={() => setReplyTo(null)} className="text-muted hover:text-error transition-colors">
+          <span className="text-muted truncate flex-1" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{activeReply.content}</span>
+          <button
+            onClick={() => {
+              if (uploadTarget.type === 'dm') {
+                setDmReplyTo(null)
+                return
+              }
+              setReplyTo(null)
+            }}
+            className="text-muted hover:text-error transition-colors"
+          >
             <X size={14} />
           </button>
         </div>
@@ -208,7 +243,10 @@ export function MessageInput({ onSend, placeholder, uploadTarget }: MessageInput
         </button>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
 
+        <EmojiPicker onSelect={handleEmojiInsert} position="top" title="Insert emoji" />
+
         <textarea
+          ref={textareaRef}
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-5 max-h-32 min-h-[36px] py-1.5"
           style={{ color: 'var(--color-text-primary)', unicodeBidi: 'plaintext' }}
           placeholder={placeholder || t('chat.typeMessage')}

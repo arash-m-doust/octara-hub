@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import subprocess
 import uuid
 import zipfile
@@ -78,6 +79,8 @@ OFFICE_MIME_TYPES = {
 }
 
 OFFICE_EXTENSIONS = {'.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'}
+RTL_CHARACTER_RE = re.compile(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]')
+CELL_REF_RE = re.compile(r'([A-Z]+)\d+')
 
 
 def is_office_document(mime_type: str, filename: str) -> bool:
@@ -152,7 +155,7 @@ def _write_html_preview(source_path: Path, title: str, body_html: str) -> Path:
     body {{
       margin: 0;
       padding: 16px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-family: "Inter", "Vazirmatn", "Tahoma", "Segoe UI", system-ui, -apple-system, sans-serif;
       background: #f5f7fa;
       color: #1f2937;
     }}
@@ -179,6 +182,8 @@ def _write_html_preview(source_path: Path, title: str, body_html: str) -> Path:
       padding: 6px 8px;
       vertical-align: top;
       word-break: break-word;
+      text-align: start;
+      unicode-bidi: plaintext;
     }}
     th {{
       background: #f3f4f6;
@@ -190,6 +195,15 @@ def _write_html_preview(source_path: Path, title: str, body_html: str) -> Path:
       white-space: pre-wrap;
       word-break: break-word;
       line-height: 1.5;
+      text-align: start;
+      unicode-bidi: plaintext;
+    }}
+    p[data-dir="rtl"] {{
+      direction: rtl;
+      font-family: "Vazirmatn", "Tahoma", "Segoe UI", "Inter", system-ui, sans-serif;
+    }}
+    p[data-dir="ltr"] {{
+      direction: ltr;
     }}
     .muted {{
       color: #6b7280;
@@ -211,6 +225,13 @@ def _write_html_preview(source_path: Path, title: str, body_html: str) -> Path:
 
 
 def _generate_spreadsheet_html_preview(source_path: Path) -> Path | None:
+    preview = _generate_spreadsheet_html_preview_openpyxl(source_path)
+    if preview:
+        return preview
+    return _generate_spreadsheet_html_preview_ooxml(source_path)
+
+
+def _generate_spreadsheet_html_preview_openpyxl(source_path: Path) -> Path | None:
     try:
         from openpyxl import load_workbook
     except Exception:
@@ -249,6 +270,140 @@ def _generate_spreadsheet_html_preview(source_path: Path) -> Path | None:
         workbook.close()
 
 
+def _generate_spreadsheet_html_preview_ooxml(source_path: Path) -> Path | None:
+    namespace = {
+        's': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    }
+    relationship_namespace = {'p': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+    max_rows = 60
+    max_cols = 20
+
+    try:
+        with zipfile.ZipFile(source_path) as archive:
+            workbook_xml = archive.read('xl/workbook.xml')
+            workbook_root = ET.fromstring(workbook_xml)
+
+            sheet_nodes = workbook_root.findall('.//s:sheets/s:sheet', namespace)
+            if not sheet_nodes:
+                return None
+            first_sheet = sheet_nodes[0]
+            sheet_name = first_sheet.attrib.get('name', 'Sheet1')
+            relationship_id = first_sheet.attrib.get(f'{{{namespace["r"]}}}id')
+
+            sheet_path = 'xl/worksheets/sheet1.xml'
+            if relationship_id:
+                rel_xml = archive.read('xl/_rels/workbook.xml.rels')
+                rel_root = ET.fromstring(rel_xml)
+                for relation in rel_root.findall('.//p:Relationship', relationship_namespace):
+                    if relation.attrib.get('Id') != relationship_id:
+                        continue
+                    target = relation.attrib.get('Target', '')
+                    if target.startswith('/'):
+                        sheet_path = target.lstrip('/')
+                    else:
+                        cleaned = target.removeprefix('./')
+                        sheet_path = f'xl/{cleaned.lstrip("/")}'
+                    break
+
+            if sheet_path not in archive.namelist():
+                sheet_candidates = sorted(
+                    name for name in archive.namelist()
+                    if name.startswith('xl/worksheets/sheet') and name.endswith('.xml')
+                )
+                if not sheet_candidates:
+                    return None
+                sheet_path = sheet_candidates[0]
+
+            shared_strings: list[str] = []
+            if 'xl/sharedStrings.xml' in archive.namelist():
+                shared_xml = archive.read('xl/sharedStrings.xml')
+                shared_root = ET.fromstring(shared_xml)
+                for si in shared_root.findall('.//s:si', namespace):
+                    pieces = []
+                    for text_node in si.findall('.//s:t', namespace):
+                        if text_node.text:
+                            pieces.append(text_node.text)
+                    shared_strings.append(''.join(pieces))
+
+            sheet_xml = archive.read(sheet_path)
+            sheet_root = ET.fromstring(sheet_xml)
+    except (FileNotFoundError, KeyError, OSError, zipfile.BadZipFile, ET.ParseError):
+        return None
+
+    rows: list[str] = []
+    for row_node in sheet_root.findall('.//s:sheetData/s:row', namespace):
+        cells_by_index: dict[int, str] = {}
+
+        for cell_index, cell_node in enumerate(row_node.findall('s:c', namespace), start=1):
+            ref = (cell_node.attrib.get('r') or '').upper()
+            match = CELL_REF_RE.match(ref)
+            column_index = cell_index
+            if match:
+                column_index = _column_letters_to_index(match.group(1))
+            if column_index > max_cols:
+                continue
+
+            text = _spreadsheet_cell_text(cell_node, namespace, shared_strings)
+            if text:
+                cells_by_index[column_index] = escape(text)
+
+        if not cells_by_index:
+            continue
+
+        max_used_col = min(max(cells_by_index.keys()), max_cols)
+        html_cells = []
+        for column_index in range(1, max_used_col + 1):
+            html_cells.append(f'<td>{cells_by_index.get(column_index, "")}</td>')
+        rows.append(f'<tr>{"".join(html_cells)}</tr>')
+
+        if len(rows) >= max_rows:
+            break
+
+    if not rows:
+        rows.append('<tr><td class="muted">No visible cells in the preview range.</td></tr>')
+
+    body = (
+        f'<div class="muted">Sheet: {escape(sheet_name)} | First {max_rows} rows, {max_cols} columns</div>'
+        f'<table>{"".join(rows)}</table>'
+    )
+    return _write_html_preview(source_path, source_path.name, body)
+
+
+def _column_letters_to_index(letters: str) -> int:
+    index = 0
+    for letter in letters:
+        index = index * 26 + (ord(letter) - 64)
+    return index
+
+
+def _spreadsheet_cell_text(cell_node: ET.Element, namespace: dict[str, str], shared_strings: list[str]) -> str:
+    cell_type = cell_node.attrib.get('t')
+
+    if cell_type == 'inlineStr':
+        inline_text = []
+        for text_node in cell_node.findall('.//s:is//s:t', namespace):
+            if text_node.text:
+                inline_text.append(text_node.text)
+        return ''.join(inline_text).strip()
+
+    value_node = cell_node.find('s:v', namespace)
+    raw_value = (value_node.text or '').strip() if value_node is not None and value_node.text else ''
+    if not raw_value:
+        return ''
+
+    if cell_type == 's':
+        try:
+            string_index = int(float(raw_value))
+        except ValueError:
+            return raw_value
+        if 0 <= string_index < len(shared_strings):
+            return shared_strings[string_index]
+        return raw_value
+
+    return raw_value
+
+
 def _generate_docx_html_preview(source_path: Path) -> Path | None:
     namespace = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
     try:
@@ -267,7 +422,8 @@ def _generate_docx_html_preview(source_path: Path) -> Path | None:
         text_parts = [node.text for node in paragraph.findall('.//w:t', namespace) if node.text]
         text = ''.join(text_parts).strip()
         if text:
-            paragraphs.append(f'<p>{escape(text)}</p>')
+            text_direction = 'rtl' if RTL_CHARACTER_RE.search(text) else 'ltr'
+            paragraphs.append(f'<p data-dir="{text_direction}" dir="{text_direction}">{escape(text)}</p>')
 
     if not paragraphs:
         paragraphs.append('<p class="muted">No readable text found in this document.</p>')

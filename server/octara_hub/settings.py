@@ -167,8 +167,10 @@ SIMPLE_JWT = {
 
 # File Storage
 STORAGE_ROOT = Path(config('STORAGE_ROOT', default=str(BASE_DIR / 'storage')))
-MAX_UPLOAD_SIZE = config('MAX_UPLOAD_SIZE', default=52428800, cast=int)  # 50MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+# 0 means "no app-level max upload size" (unlimited by Octara Hub).
+MAX_UPLOAD_SIZE = config('MAX_UPLOAD_SIZE', default=0, cast=int)
+# Stream uploads directly to temporary files instead of buffering in memory.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 0
 
 # App settings
 APP_NAME = config('APP_NAME', default='Octara Hub')

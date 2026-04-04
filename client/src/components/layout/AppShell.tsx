@@ -6,8 +6,6 @@ import { realtime } from '@/realtime/connection'
 import { useAuthStore } from '@/stores/authStore'
 import { useCallStore } from '@/stores/callStore'
 import { useNotificationStore } from '@/stores/notificationStore'
-import { toast } from '@/components/ui/Toast'
-import type { Message } from '@/api/messages'
 import { TopBar } from './TopBar'
 import { StatusBar } from './StatusBar'
 import { ChannelSidebar } from './ChannelSidebar'
@@ -16,6 +14,7 @@ import { RightPanel } from './RightPanel'
 import { CallOverlay } from '@/components/call/CallOverlay'
 import { IncomingCallModal } from '@/components/call/IncomingCallModal'
 import { ToastContainer } from '@/components/ui/Toast'
+import { useAppShellHotkeys, useAppShellRealtime } from './useAppShellEffects'
 
 export function AppShell() {
   const { user } = useAuthStore()
@@ -29,12 +28,10 @@ export function AppShell() {
   const {
     fetchThreads,
     fetchPlatformUsers,
-    currentThread,
     addMessage,
+    currentThread,
     setThreadUnread,
-    incrementThreadUnread,
-    markThreadRead,
-    fetchMessages,
+    upsertThreadFromDmEvent,
   } = useDMStore()
   const { fetchNotifications, addNotification } = useNotificationStore()
   const {
@@ -113,161 +110,28 @@ export function AppShell() {
     }
   }, [user?.profile?.theme])
 
-  useEffect(() => {
-    const handleGlobalKey = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.includes('Mac')
-      const modifier = isMac ? e.metaKey : e.ctrlKey
+  useAppShellHotkeys({ rightPanel, setRightPanel })
 
-      if (modifier && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setRightPanel('search')
-        setTimeout(() => {
-          const searchInput = document.querySelector<HTMLInputElement>('[placeholder=\"Search messages...\"]')
-          searchInput?.focus()
-        }, 50)
-      }
-
-      if (e.key === 'Escape' && rightPanel) {
-        setRightPanel(null)
-      }
-
-      if (modifier && e.key.toLowerCase() === 'r') {
-        e.preventDefault()
-        if (view === 'workspace') {
-          void fetchWorkspaces()
-          if (currentWorkspace) {
-            void fetchChannels(currentWorkspace.id)
-            void fetchCategories(currentWorkspace.id)
-            void fetchMembers(currentWorkspace.id)
-          }
-        } else {
-          void fetchThreads()
-          void fetchPlatformUsers()
-          if (currentThread) {
-            void fetchMessages(currentThread.id)
-          }
-        }
-        void fetchNotifications()
-        toast.info('Page data refreshed')
-      }
-    }
-
-    window.addEventListener('keydown', handleGlobalKey)
-    return () => window.removeEventListener('keydown', handleGlobalKey)
-  }, [
-    rightPanel,
+  useAppShellRealtime({
+    userId: user?.id,
     view,
-    currentWorkspace?.id,
-    currentThread?.id,
-    setRightPanel,
-    fetchWorkspaces,
-    fetchChannels,
-    fetchCategories,
-    fetchMembers,
-    fetchThreads,
-    fetchPlatformUsers,
-    fetchMessages,
-    fetchNotifications,
-  ])
-
-  // Listen for call-related SSE events
-  useEffect(() => {
-    const unsubs = [
-      realtime.on('call.incoming', (data: unknown) => {
-        const { call } = data as { call: import('@/api/calls').CallSession }
-        setIncomingCall(call)
-      }),
-      realtime.on('call.started', (data: unknown) => {
-        // Another user started a call in our channel - show as incoming
-        const { call } = data as { call: import('@/api/calls').CallSession }
-        if (call.initiator.id !== user?.id) {
-          setIncomingCall(call)
-        }
-      }),
-      realtime.on('call.signal', (data: unknown) => {
-        handleSignal(data as Parameters<typeof handleSignal>[0])
-      }),
-      realtime.on('call.participant_joined', (data: unknown) => {
-        handleParticipantJoined(data as Parameters<typeof handleParticipantJoined>[0])
-      }),
-      realtime.on('call.participant_left', (data: unknown) => {
-        handleParticipantLeft(data as Parameters<typeof handleParticipantLeft>[0])
-      }),
-      realtime.on('call.ended', (data: unknown) => {
-        handleCallEnded(data as Parameters<typeof handleCallEnded>[0])
-      }),
-      realtime.on('call.declined', (data: unknown) => {
-        handleCallEnded(data as Parameters<typeof handleCallEnded>[0])
-      }),
-      realtime.on('dm.message.created', (data: unknown) => {
-        const { message, thread_id } = data as { message: Message; thread_id?: number }
-        const threadId = thread_id ?? message.dm_thread ?? 0
-        const isActiveDmThread = view === 'dm' && !!currentThread && threadId === currentThread.id
-        if (isActiveDmThread) {
-          addMessage(message)
-          setThreadUnread(threadId, 0)
-          void markThreadRead(threadId)
-        } else if (threadId) {
-          incrementThreadUnread(threadId)
-        }
-        // Always refresh thread list so newly-created 1:1 thread appears.
-        void fetchThreads()
-      }),
-      realtime.on('workspace.created', () => {
-        fetchWorkspaces()
-      }),
-      realtime.on('workspace.invited', () => {
-        fetchWorkspaces()
-        // Refresh subscriptions so workspace_{id} channels are picked up immediately.
-        realtime.connect()
-      }),
-      realtime.on('workspace.member.added', (data: unknown) => {
-        const { workspace_id } = data as { workspace_id: number }
-        fetchWorkspaces()
-        if (currentWorkspace?.id === workspace_id) {
-          fetchMembers(workspace_id)
-        }
-      }),
-      realtime.on('category.created', (data: unknown) => {
-        const { workspace_id } = data as { workspace_id: number }
-        if (currentWorkspace?.id === workspace_id) {
-          fetchCategories(workspace_id)
-        }
-      }),
-      realtime.on('channel.created', (data: unknown) => {
-        const { workspace_id } = data as { workspace_id: number }
-        if (currentWorkspace?.id === workspace_id) {
-          fetchChannels(workspace_id)
-        }
-      }),
-      realtime.on('notification', (data: unknown) => {
-        const { notification } = data as { notification: import('@/stores/notificationStore').NotificationItem }
-        addNotification(notification)
-      }),
-    ]
-    return () => unsubs.forEach((u) => u())
-  }, [
-    user?.id,
-    view,
-    currentThread?.id,
-    currentWorkspace?.id,
+    currentThreadId: currentThread?.id,
+    currentWorkspaceId: currentWorkspace?.id,
     setIncomingCall,
     handleSignal,
     handleParticipantJoined,
     handleParticipantLeft,
     handleCallEnded,
     fetchThreads,
-    fetchMessages,
     addMessage,
-    addNotification,
     setThreadUnread,
-    incrementThreadUnread,
-    markThreadRead,
+    upsertThreadFromDmEvent,
     fetchWorkspaces,
     fetchChannels,
     fetchCategories,
     fetchMembers,
-  ])
+    addNotification,
+  })
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }}>

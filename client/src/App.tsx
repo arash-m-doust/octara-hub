@@ -13,7 +13,10 @@ export default function App() {
   const { i18n } = useTranslation()
   const { isAuthenticated, fetchMe, logout } = useAuthStore()
   const [authView, setAuthView] = useState<AuthView>('login')
-  const [initializing, setInitializing] = useState(authStorage.hasAccessToken())
+  const [initializing, setInitializing] = useState(() => {
+    authStorage.syncUrlWithStoredSession()
+    return authStorage.hasAccessToken()
+  })
   const [restoreError, setRestoreError] = useState('')
   const initRef = useRef(false)
 
@@ -67,8 +70,6 @@ export default function App() {
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
-    // Keep URL session key aligned with tab storage before auth check.
-    authStorage.syncUrlWithStoredSession()
 
     if (authStorage.hasAccessToken()) {
       void attemptSessionRestore()

@@ -1,0 +1,7 @@
+08 = 2 hours
+09 = 6 hours (BexLogix) ERD
+10 = 9 hours (BexLogix) Models and db
+11 = 12 hours (BexLogix) Functions and a part of Streamlit
+12 = 4 hours (Documentaion of Apps), (Record walthrough videos of them)
+13 = 6 hours (BexChat, BexLogix, BexInnovation)
+14 = 

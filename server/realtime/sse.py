@@ -26,6 +26,15 @@ def subscribe(channel):
     return q
 
 
+def subscribe_many(channels):
+    """Subscribe one queue to multiple channels."""
+    q = queue.Queue(maxsize=300)
+    with _lock:
+        for channel in set(channels):
+            _subscribers[channel].append(q)
+    return q
+
+
 def unsubscribe(channel, q):
     """Unsubscribe from a channel."""
     with _lock:
@@ -35,6 +44,18 @@ def unsubscribe(channel, q):
             pass
         if not _subscribers[channel]:
             del _subscribers[channel]
+
+
+def unsubscribe_many(channels, q):
+    """Unsubscribe one queue from multiple channels."""
+    with _lock:
+        for channel in set(channels):
+            try:
+                _subscribers[channel].remove(q)
+            except ValueError:
+                continue
+            if not _subscribers[channel]:
+                del _subscribers[channel]
 
 
 def publish_event(channel, event_type, data):

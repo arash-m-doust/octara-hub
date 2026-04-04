@@ -26,13 +26,7 @@ class SSEEventStreamTests(APITestCase):
         token = str(AccessToken.for_user(user))
         url = f"{reverse('sse_events')}?token={token}"
 
-        fake_now = [0]
-
-        def jump_time():
-            fake_now[0] += 16
-            return fake_now[0]
-
-        with patch('realtime.views.time.time', side_effect=jump_time):
+        with patch('realtime.views.HEARTBEAT_TIMEOUT_SECONDS', 0.01):
             response = self.client.get(url, stream=True)
             chunks = []
             for chunk in response.streaming_content:

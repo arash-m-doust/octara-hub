@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMessageStore } from '@/stores/messageStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { jumpToMessage } from '@/utils/messageNavigation'
 import { Pin, ChevronUp, ChevronDown, X, PinOff } from 'lucide-react'
 
 export function PinnedBanner() {
@@ -45,7 +46,14 @@ export function PinnedBanner() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => hasMultiple && cyclePinIndex('next')}>
+      <div
+        className="flex-1 min-w-0 cursor-pointer"
+        onClick={() => {
+          if (!jumpToMessage(msg.id) && hasMultiple) {
+            cyclePinIndex('next')
+          }
+        }}
+      >
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-semibold" style={{ color: 'var(--color-accent)' }}>
             {senderName}

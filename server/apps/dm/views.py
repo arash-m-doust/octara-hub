@@ -11,9 +11,10 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import CursorPagination
+from django.http import Http404
 
-from apps.messaging.models import Message
-from apps.messaging.serializers import MessageSerializer, MessageCreateSerializer
+from apps.messaging.models import Message, PinnedMessage
+from apps.messaging.serializers import MessageSerializer, MessageCreateSerializer, PinnedMessageSerializer
 from .models import DMThread, DMParticipant
 from .serializers import DMThreadSerializer, DMThreadCreateSerializer
 from realtime.sse import publish_event
@@ -142,8 +143,78 @@ class DMMessageDetailView(generics.RetrieveUpdateDestroyAPIView):
         if instance.user != self.request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('You can only delete your own messages.')
+        thread_id = self.kwargs['thread_id']
         instance.is_deleted = True
         instance.save(update_fields=['is_deleted'])
+        PinnedMessage.objects.filter(dm_thread_id=thread_id, message_id=instance.id).delete()
+        publish_event(f'dm_{thread_id}', 'dm.message.deleted', {
+            'thread_id': thread_id,
+            'message_id': instance.id,
+        })
+
+
+class DMPinView(APIView):
+    def post(self, request, thread_id, message_id):
+        if not DMParticipant.objects.filter(thread_id=thread_id, user=request.user).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Not a participant.')
+
+        message = Message.objects.filter(
+            id=message_id,
+            dm_thread_id=thread_id,
+            is_deleted=False,
+        ).first()
+        if not message:
+            raise Http404('Message not found in this thread.')
+
+        if PinnedMessage.objects.filter(dm_thread_id=thread_id, message_id=message_id).exists():
+            return Response({'detail': 'Already pinned.'}, status=400)
+
+        pin = PinnedMessage.objects.create(
+            message=message,
+            dm_thread_id=thread_id,
+            pinned_by=request.user,
+        )
+        publish_event(f'dm_{thread_id}', 'dm.message.pinned', {
+            'thread_id': thread_id,
+            'message_id': message_id,
+            'pinned_by': request.user.id,
+        })
+        return Response(PinnedMessageSerializer(pin, context={'request': request}).data, status=201)
+
+    def delete(self, request, thread_id, message_id):
+        if not DMParticipant.objects.filter(thread_id=thread_id, user=request.user).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Not a participant.')
+
+        message_exists = Message.objects.filter(
+            id=message_id,
+            dm_thread_id=thread_id,
+            is_deleted=False,
+        ).exists()
+        if not message_exists:
+            raise Http404('Message not found in this thread.')
+
+        PinnedMessage.objects.filter(dm_thread_id=thread_id, message_id=message_id).delete()
+        publish_event(f'dm_{thread_id}', 'dm.message.unpinned', {
+            'thread_id': thread_id,
+            'message_id': message_id,
+        })
+        return Response(status=204)
+
+
+class DMPinnedMessageListView(generics.ListAPIView):
+    serializer_class = PinnedMessageSerializer
+
+    def get_queryset(self):
+        thread_id = self.kwargs['thread_id']
+        if not DMParticipant.objects.filter(thread_id=thread_id, user=self.request.user).exists():
+            return PinnedMessage.objects.none()
+        return PinnedMessage.objects.filter(
+            dm_thread_id=thread_id,
+            message__dm_thread_id=thread_id,
+            message__is_deleted=False,
+        ).select_related('message', 'message__user', 'message__user__profile').prefetch_related('message__attachments').order_by('-created_at')
 
 
 class DMTypingView(APIView):

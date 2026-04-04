@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { Radio } from 'lucide-react'
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void
@@ -61,7 +60,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             boxShadow: 'inset 0 1px 0 var(--color-metal-highlight), 0 2px 6px var(--color-metal-shadow)',
           }}
         >
-          <Radio size={24} style={{ color: 'var(--color-accent)' }} />
+          <img src="/octara-brand-logo.svg" alt="Octara Hub" className="w-8 h-8 rounded-md" />
         </div>
         <h1 className="text-xl font-bold tracking-wide" style={{ color: 'var(--color-text-primary)' }}>{t('auth.register')}</h1>
       </div>

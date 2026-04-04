@@ -13,6 +13,13 @@ export interface DMThread {
   updated_at: string
 }
 
+export interface DMPinnedMessage {
+  id: number
+  message: Message
+  pinned_by: number
+  created_at: string
+}
+
 export const dmApi = {
   threads: () => api<DMThread[]>('/dm/threads/'),
   create: (user_ids: number[], name?: string) =>
@@ -27,6 +34,12 @@ export const dmApi = {
     api<Message>(`/dm/threads/${threadId}/messages/${messageId}/`, { method: 'PATCH', body: { content } }),
   deleteMessage: (threadId: number, messageId: number) =>
     api(`/dm/threads/${threadId}/messages/${messageId}/`, { method: 'DELETE' }),
+  pinMessage: (threadId: number, messageId: number) =>
+    api<DMPinnedMessage>(`/dm/threads/${threadId}/messages/${messageId}/pin/`, { method: 'POST' }),
+  unpinMessage: (threadId: number, messageId: number) =>
+    api(`/dm/threads/${threadId}/messages/${messageId}/pin/`, { method: 'DELETE' }),
+  pinnedMessages: (threadId: number) =>
+    api<DMPinnedMessage[]>(`/dm/threads/${threadId}/pins/`),
   read: (threadId: number) =>
     api<{ thread_id: number; last_read_message_id: number | null; unread_count: number }>(
       `/dm/threads/${threadId}/read/`,

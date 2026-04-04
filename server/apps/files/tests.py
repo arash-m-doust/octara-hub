@@ -1,9 +1,11 @@
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import zipfile
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -133,6 +135,91 @@ class FileUploadRealtimeEventTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_upload_with_invalid_channel_id_returns_controlled_404(self):
+        self.client.force_authenticate(user=self.sender)
+        url = reverse('file_upload')
+
+        response = self.client.post(
+            url,
+            {**self._file_payload(), 'channel_id': 999999},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_download_remains_public_for_existing_policy(self):
+        self.client.force_authenticate(user=self.sender)
+        upload_response = self.client.post(
+            reverse('file_upload'),
+            {**self._file_payload('public.txt'), 'channel_id': self.channel.id},
+            format='multipart',
+        )
+        self.assertEqual(upload_response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('file_download', kwargs={'pk': upload_response.data['id']}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_preview_remains_public_for_existing_policy(self):
+        self.client.force_authenticate(user=self.sender)
+        upload_response = self.client.post(
+            reverse('file_upload'),
+            {
+                'file': SimpleUploadedFile(
+                    'public.png',
+                    b'fake-image-content',
+                    content_type='image/png',
+                ),
+                'channel_id': self.channel.id,
+            },
+            format='multipart',
+        )
+        self.assertEqual(upload_response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(upload_response.data['preview_url'])
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('file_preview', kwargs={'pk': upload_response.data['id']}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_pdf_upload_has_preview_url_and_preview_endpoint_serves_pdf(self):
+        self.client.force_authenticate(user=self.sender)
+        upload_response = self.client.post(
+            reverse('file_upload'),
+            {
+                'file': SimpleUploadedFile(
+                    'guide.pdf',
+                    b'%PDF-1.4 fake',
+                    content_type='application/pdf',
+                ),
+                'channel_id': self.channel.id,
+            },
+            format='multipart',
+        )
+        self.assertEqual(upload_response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(upload_response.data['preview_url'])
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('file_preview', kwargs={'pk': upload_response.data['id']}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+    @override_settings(MAX_UPLOAD_SIZE=1)
+    def test_upload_does_not_enforce_app_level_size_limit(self):
+        self.client.force_authenticate(user=self.sender)
+        response = self.client.post(
+            reverse('file_upload'),
+            {
+                'file': SimpleUploadedFile(
+                    'large.bin',
+                    b'x' * 10,
+                    content_type='application/octet-stream',
+                ),
+                'channel_id': self.channel.id,
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_office_upload_generates_preview_when_converter_succeeds(self):
         self.client.force_authenticate(user=self.sender)
         url = reverse('file_upload')
@@ -174,7 +261,7 @@ class FileUploadRealtimeEventTests(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIsNone(response.data['preview_url'])
+        self.assertIsNotNone(response.data['preview_url'])
 
 
 class OfficePreviewConversionTests(APITestCase):
@@ -226,3 +313,92 @@ class OfficePreviewConversionTests(APITestCase):
             assert preview_path is not None
             self.assertTrue(preview_path.exists())
             self.assertTrue(str(preview_path).endswith('_preview.html'))
+
+    def test_generate_office_preview_falls_back_to_ooxml_parser_without_openpyxl(self):
+        with TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / 'sheet.xlsx'
+            with zipfile.ZipFile(source, 'w') as archive:
+                archive.writestr(
+                    '[Content_Types].xml',
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                    '<Default Extension="xml" ContentType="application/xml"/>'
+                    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                    '</Types>',
+                )
+                archive.writestr(
+                    '_rels/.rels',
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                    '</Relationships>',
+                )
+                archive.writestr(
+                    'xl/workbook.xml',
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                    '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
+                    '</workbook>',
+                )
+                archive.writestr(
+                    'xl/_rels/workbook.xml.rels',
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+                    '</Relationships>',
+                )
+                archive.writestr(
+                    'xl/worksheets/sheet1.xml',
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                    '<sheetData>'
+                    '<row r="1"><c r="A1" t="inlineStr"><is><t>Name</t></is></c><c r="B1" t="inlineStr"><is><t>Count</t></is></c></row>'
+                    '<row r="2"><c r="A2" t="inlineStr"><is><t>Visitors</t></is></c><c r="B2"><v>42</v></c></row>'
+                    '</sheetData>'
+                    '</worksheet>',
+                )
+
+            with patch('apps.files.storage._generate_spreadsheet_html_preview_openpyxl', return_value=None):
+                with patch('apps.files.storage.subprocess.run', side_effect=FileNotFoundError):
+                    preview_path = generate_office_preview(source)
+
+            self.assertIsNotNone(preview_path)
+            assert preview_path is not None
+            self.assertTrue(preview_path.exists())
+            self.assertTrue(str(preview_path).endswith('_preview.html'))
+            html_content = preview_path.read_text(encoding='utf-8')
+            self.assertIn('Sheet: Sheet1', html_content)
+            self.assertIn('Visitors', html_content)
+            self.assertIn('42', html_content)
+
+    def test_generate_office_preview_docx_html_uses_rtl_for_persian_text(self):
+        with TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir) / 'doc.docx'
+            xml_content = (
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                '<w:body>'
+                '<w:p><w:r><w:t>سلام دنیا</w:t></w:r></w:p>'
+                '<w:p><w:r><w:t>Hello world</w:t></w:r></w:p>'
+                '</w:body>'
+                '</w:document>'
+            )
+            with zipfile.ZipFile(source, 'w') as archive:
+                archive.writestr('word/document.xml', xml_content)
+
+            with patch('apps.files.storage.subprocess.run', side_effect=FileNotFoundError):
+                preview_path = generate_office_preview(source)
+
+            self.assertIsNotNone(preview_path)
+            assert preview_path is not None
+            self.assertTrue(preview_path.exists())
+            self.assertTrue(str(preview_path).endswith('_preview.html'))
+
+            html_content = preview_path.read_text(encoding='utf-8')
+            self.assertIn('font-family: "Inter", "Vazirmatn", "Tahoma"', html_content)
+            self.assertIn('unicode-bidi: plaintext;', html_content)
+            self.assertIn('<p data-dir="rtl" dir="rtl">سلام دنیا</p>', html_content)
+            self.assertIn('<p data-dir="ltr" dir="ltr">Hello world</p>', html_content)

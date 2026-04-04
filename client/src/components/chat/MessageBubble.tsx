@@ -4,10 +4,13 @@ import { format } from 'date-fns'
 import { useAuthStore } from '@/stores/authStore'
 import { useMessageStore } from '@/stores/messageStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { toast } from '@/components/ui/Toast'
-import { fileApi } from '@/api/files'
+import { useDMStore } from '@/stores/dmStore'
+import { useOfficePreview } from '@/hooks/useOfficePreview'
+import { isPdfMimeType, isPreviewableDocumentMimeType } from '@/utils/fileTypes'
 import { Avatar } from '@/components/ui/Avatar'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
+import { EmojiPicker } from '@/components/chat/EmojiPicker'
+import { jumpToMessage } from '@/utils/messageNavigation'
 import type { Message, MessageAttachment } from '@/api/messages'
 import {
   Download,
@@ -59,61 +62,20 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
   const isImage = attachment.mime_type.startsWith('image/')
   const isVideo = attachment.mime_type.startsWith('video/')
   const isAudio = attachment.mime_type.startsWith('audio/')
-  const isOffice = (
-    attachment.mime_type === 'application/msword' ||
-    attachment.mime_type === 'application/vnd.ms-excel' ||
-    attachment.mime_type === 'application/vnd.ms-powerpoint' ||
-    attachment.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    attachment.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-    attachment.mime_type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-    attachment.mime_type === 'application/vnd.ms-excel.sheet.macroEnabled.12' ||
-    attachment.mime_type === 'application/vnd.ms-word.document.macroEnabled.12' ||
-    attachment.mime_type === 'application/vnd.ms-powerpoint.presentation.macroEnabled.12'
-  )
+  const isPdf = isPdfMimeType(attachment.mime_type)
+  const isPreviewableDocument = isPreviewableDocumentMimeType(attachment.mime_type)
   const [imgError, setImgError] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [officePreviewUrl, setOfficePreviewUrl] = useState<string | null>(null)
 
   const downloadUrl = `/api${attachment.download_url}`
   const previewUrl = attachment.preview_url ? `/api${attachment.preview_url}` : null
-
-  useEffect(() => {
-    return () => {
-      if (officePreviewUrl) {
-        URL.revokeObjectURL(officePreviewUrl)
-      }
-    }
-  }, [officePreviewUrl])
-
-  const openOfficePreview = async () => {
-    if (!attachment.preview_url) {
-      toast.info('Preview unavailable. Download the file to view it.')
-      return
-    }
-    setPreviewLoading(true)
-    try {
-      if (officePreviewUrl) {
-        URL.revokeObjectURL(officePreviewUrl)
-      }
-      const blob = await fileApi.previewBlob(attachment.preview_url)
-      const objectUrl = URL.createObjectURL(blob)
-      setOfficePreviewUrl(objectUrl)
-      setPreviewOpen(true)
-    } catch {
-      toast.error('Preview failed. Download the file to view it.')
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  const closeOfficePreview = () => {
-    setPreviewOpen(false)
-    if (officePreviewUrl) {
-      URL.revokeObjectURL(officePreviewUrl)
-      setOfficePreviewUrl(null)
-    }
-  }
+  const {
+    previewOpen: officePreviewOpen,
+    previewLoading,
+    previewObjectUrl,
+    openPreview: openOfficePreview,
+    closePreview: closeOfficePreview,
+  } = useOfficePreview({ previewPath: attachment.preview_url })
 
   if (isImage && previewUrl && !imgError) {
     return (
@@ -151,11 +113,11 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
     )
   }
 
-  if (isOffice) {
+  if (isPreviewableDocument) {
     return (
       <div className="mt-1.5 flex items-center gap-2.5 p-2.5 rounded-ind ind-recess max-w-xs">
         <div className="w-9 h-9 rounded-ind flex items-center justify-center flex-shrink-0" style={{ background: 'var(--color-surface-plate)' }}>
-          <FileSpreadsheet size={18} style={{ color: 'var(--color-accent)' }} />
+          {isPdf ? <FileText size={18} style={{ color: '#FF5252' }} /> : <FileSpreadsheet size={18} style={{ color: 'var(--color-accent)' }} />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
@@ -166,7 +128,7 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
             <button
               type="button"
               onClick={() => void openOfficePreview()}
-              disabled={previewLoading}
+              disabled={previewLoading || !attachment.preview_url}
               className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-ind transition-colors disabled:opacity-60"
               style={{
                 color: 'var(--color-text-primary)',
@@ -190,10 +152,10 @@ function FileAttachment({ attachment }: { attachment: MessageAttachment }) {
             </a>
           </div>
         </div>
-        {previewOpen && officePreviewUrl && (
+        {officePreviewOpen && previewObjectUrl && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="w-[92vw] h-[88vh] rounded-ind-lg overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
-              <iframe src={officePreviewUrl} className="w-full h-full" title={attachment.original_filename} />
+              <iframe src={previewObjectUrl} className="w-full h-full" title={attachment.original_filename} />
             </div>
             <button
               type="button"
@@ -267,53 +229,116 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
   const {
-    setReplyTo,
-    editMessage,
-    deleteMessage,
+    setReplyTo: setChannelReplyTo,
+    editMessage: editChannelMessage,
+    deleteMessage: deleteChannelMessage,
     addReaction,
     removeReaction,
-    pinMessage,
-    unpinMessage,
-    pinnedMessages,
+    pinMessage: pinChannelMessage,
+    unpinMessage: unpinChannelMessage,
+    pinnedMessages: channelPinnedMessages,
   } = useMessageStore()
-  const { currentChannel } = useWorkspaceStore()
+  const {
+    setReplyTo: setDmReplyTo,
+    editMessage: editDmMessage,
+    deleteMessage: deleteDmMessage,
+    pinMessage: pinDmMessage,
+    unpinMessage: unpinDmMessage,
+    pinnedMessages: dmPinnedMessages,
+  } = useDMStore()
+  const { currentChannel, currentWorkspace, members } = useWorkspaceStore()
 
-  const isPinned = pinnedMessages.some((p) => p.message.id === message.id)
+  const isDMMessage = !!message.dm_thread
+  const dmThreadId = message.dm_thread ?? null
+  const channelId = message.channel ?? currentChannel?.id ?? null
+  const canReact = !isDMMessage && !!channelId
+  const isPinned = isDMMessage
+    ? dmPinnedMessages.some((p) => p.message.id === message.id)
+    : channelPinnedMessages.some((p) => p.message.id === message.id)
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isOwn = user?.id === message.user.id
+  const myMembership = members.find((member) => member.user.id === user?.id)
+  const canModerateMessages = !isDMMessage && !!user && (
+    user.is_superuser
+    || user.is_staff
+    || (currentWorkspace?.owner === user.id)
+    || !!myMembership?.role?.permissions?.manage_messages
+    || !!myMembership?.role?.permissions?.manage_channels
+    || !!myMembership?.role?.permissions?.manage_workspace
+  )
+  const canDelete = isDMMessage ? isOwn : (isOwn || canModerateMessages)
+  const canPin = isDMMessage ? !!dmThreadId : !!channelId
   const hasAttachments = message.attachments && message.attachments.length > 0
   const isAutoContent = hasAttachments && message.content.startsWith('📎 ')
 
   const handleEdit = async () => {
-    if (!currentChannel || editContent.trim() === message.content) {
+    if (editContent.trim() === message.content) {
       setEditing(false)
       return
     }
-    await editMessage(currentChannel.id, message.id, editContent.trim())
+    if (isDMMessage && dmThreadId) {
+      await editDmMessage(dmThreadId, message.id, editContent.trim())
+      setEditing(false)
+      return
+    }
+    if (channelId) {
+      await editChannelMessage(channelId, message.id, editContent.trim())
+    }
     setEditing(false)
   }
 
   const handleDelete = async () => {
-    if (!currentChannel) return
-    await deleteMessage(currentChannel.id, message.id)
+    if (isDMMessage && dmThreadId) {
+      await deleteDmMessage(dmThreadId, message.id)
+      return
+    }
+    if (channelId) {
+      await deleteChannelMessage(channelId, message.id)
+    }
+  }
+
+  const handlePinToggle = async () => {
+    if (isDMMessage && dmThreadId) {
+      if (isPinned) {
+        await unpinDmMessage(dmThreadId, message.id)
+      } else {
+        await pinDmMessage(dmThreadId, message.id)
+      }
+      return
+    }
+    if (channelId) {
+      if (isPinned) {
+        await unpinChannelMessage(channelId, message.id)
+      } else {
+        await pinChannelMessage(channelId, message.id)
+      }
+    }
+  }
+
+  const handleReply = () => {
+    if (isDMMessage) {
+      setDmReplyTo(message)
+      return
+    }
+    setChannelReplyTo(message)
   }
 
   const menuItems = [
-    { label: t('chat.reply'), icon: <Reply size={12} />, onClick: () => setReplyTo(message) },
-    {
-      label: isPinned ? t('chat.unpin') : t('chat.pin'),
-      icon: isPinned ? <PinOff size={12} /> : <Pin size={12} />,
-      onClick: () => {
-        if (!currentChannel) return
-        if (isPinned) unpinMessage(currentChannel.id, message.id)
-        else pinMessage(currentChannel.id, message.id)
-      },
-    },
-    ...(isOwn || user?.is_superuser
+    { label: t('chat.reply'), icon: <Reply size={12} />, onClick: handleReply },
+    ...(canPin
+      ? [{
+          label: isPinned ? t('chat.unpin') : t('chat.pin'),
+          icon: isPinned ? <PinOff size={12} /> : <Pin size={12} />,
+          onClick: () => {
+            void handlePinToggle()
+          },
+        }]
+      : []),
+    ...(canDelete
       ? [
           ...(isOwn
             ? [{ label: t('chat.edit'), icon: <Pencil size={12} />, onClick: () => { setEditing(true); setEditContent(message.content) } }]
@@ -324,6 +349,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   ]
 
   const quickReactions = ['👍', '❤️', '🔥']
+
+  const handleReactionSelect = (emoji: string) => {
+    if (!canReact || !channelId) return
+    void addReaction(channelId, message.id, emoji)
+  }
 
   const clearLongPressTimer = () => {
     if (longPressTimer.current) {
@@ -438,20 +468,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               }}
               dir="auto"
               onClick={() => {
-                const target = document.querySelector<HTMLElement>(`[data-message-id=\"${message.reply_to_preview!.id}\"]`)
-                if (target) {
-                  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  target.classList.add('ring-2')
-                  target.style.background = 'var(--color-accent-soft)'
-                  target.style.borderRadius = '6px'
-                  target.style.transition = 'background 1s'
-                  setTimeout(() => {
-                    target.style.background = ''
-                    target.style.borderRadius = ''
-                    target.style.transition = ''
-                    target.classList.remove('ring-2')
-                  }, 1500)
-                }
+                jumpToMessage(message.reply_to_preview!.id)
               }}
               title="Click to jump to original message"
             >
@@ -500,11 +517,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 <button
                   key={r.emoji}
                   onClick={() => {
-                    if (!currentChannel) return
+                    if (!canReact || !channelId) return
                     if (r.reacted) {
-                      void removeReaction(currentChannel.id, message.id, r.emoji)
+                      void removeReaction(channelId, message.id, r.emoji)
                     } else {
-                      void addReaction(currentChannel.id, message.id, r.emoji)
+                      void addReaction(channelId, message.id, r.emoji)
                     }
                   }}
                   className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-ind text-xs transition-all"
@@ -523,10 +540,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           )}
 
           <div className={`transition-opacity flex items-start gap-0.5 pt-1 ${showActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isOwn ? 'justify-end' : 'justify-start'}`}>
-            {quickReactions.map((emoji) => (
+            {canReact && quickReactions.map((emoji) => (
               <button
                 key={emoji}
-                onClick={() => currentChannel && addReaction(currentChannel.id, message.id, emoji)}
+                onClick={() => handleReactionSelect(emoji)}
                 aria-label={`React with ${emoji}`}
                 className="w-6 h-6 flex items-center justify-center rounded-ind text-xs transition-all"
                 style={{
@@ -538,6 +555,14 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 {emoji}
               </button>
             ))}
+            {canReact && (
+              <EmojiPicker
+                compact
+                position="top"
+                onSelect={handleReactionSelect}
+                title="More reactions"
+              />
+            )}
             <DropdownMenu
               trigger={
                 <button

@@ -3,14 +3,18 @@ import { useUIStore } from '@/stores/uiStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useDMStore } from '@/stores/dmStore'
+import { useMessageStore } from '@/stores/messageStore'
 import { Avatar } from '@/components/ui/Avatar'
 import { useTranslation } from 'react-i18next'
 import { fileApi, type Attachment } from '@/api/files'
+import { useOfficePreview } from '@/hooks/useOfficePreview'
+import { isPdfMimeType, isPreviewableDocumentMimeType } from '@/utils/fileTypes'
 import { searchApi } from '@/api/search'
-import { messageApi, type Message } from '@/api/messages'
+import { type Message } from '@/api/messages'
 import { extractResults } from '@/api/client'
 import { workspaceApi, type Role } from '@/api/workspaces'
 import { toast } from '@/components/ui/Toast'
+import { jumpToMessage } from '@/utils/messageNavigation'
 import { Pin as PinIcon } from 'lucide-react'
 import {
   X, Download, Search, FileText, Image, Film, Music,
@@ -39,60 +43,18 @@ function getFileIcon(mimeType: string) {
 
 function FileItem({ file }: { file: Attachment }) {
   const isImage = file.mime_type.startsWith('image/')
-  const isOffice = (
-    file.mime_type === 'application/msword' ||
-    file.mime_type === 'application/vnd.ms-excel' ||
-    file.mime_type === 'application/vnd.ms-powerpoint' ||
-    file.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    file.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-    file.mime_type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-    file.mime_type === 'application/vnd.ms-excel.sheet.macroEnabled.12' ||
-    file.mime_type === 'application/vnd.ms-word.document.macroEnabled.12' ||
-    file.mime_type === 'application/vnd.ms-powerpoint.presentation.macroEnabled.12'
-  )
+  const isPdf = isPdfMimeType(file.mime_type)
+  const isPreviewableDocument = isPreviewableDocumentMimeType(file.mime_type)
   const previewUrl = file.preview_url ? `/api${file.preview_url}` : null
   const downloadUrl = `/api${file.download_url}`
   const { icon: FileIcon, color } = getFileIcon(file.mime_type)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [officePreviewUrl, setOfficePreviewUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (officePreviewUrl) {
-        URL.revokeObjectURL(officePreviewUrl)
-      }
-    }
-  }, [officePreviewUrl])
-
-  const openOfficePreview = async () => {
-    if (!file.preview_url) {
-      toast.info('Preview unavailable. Download the file to view it.')
-      return
-    }
-    setPreviewLoading(true)
-    try {
-      if (officePreviewUrl) {
-        URL.revokeObjectURL(officePreviewUrl)
-      }
-      const blob = await fileApi.previewBlob(file.preview_url)
-      const objectUrl = URL.createObjectURL(blob)
-      setOfficePreviewUrl(objectUrl)
-      setPreviewOpen(true)
-    } catch {
-      toast.error('Preview failed. Download the file to view it.')
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  const closeOfficePreview = () => {
-    setPreviewOpen(false)
-    if (officePreviewUrl) {
-      URL.revokeObjectURL(officePreviewUrl)
-      setOfficePreviewUrl(null)
-    }
-  }
+  const {
+    previewOpen,
+    previewLoading,
+    previewObjectUrl,
+    openPreview: openOfficePreview,
+    closePreview: closeOfficePreview,
+  } = useOfficePreview({ previewPath: file.preview_url })
 
   return (
     <div className="flex items-center gap-2.5 p-2 rounded-ind hover:bg-surface-inset group transition-all">
@@ -107,13 +69,13 @@ function FileItem({ file }: { file: Attachment }) {
         <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{file.original_filename}</div>
         <div className="text-[10px] text-muted">{formatFileSize(file.file_size)}</div>
       </div>
-      {isOffice && (
+      {isPreviewableDocument && (
         <button
           type="button"
           onClick={() => void openOfficePreview()}
-          disabled={previewLoading}
+          disabled={previewLoading || !file.preview_url}
           className="opacity-0 group-hover:opacity-100 p-1 rounded-ind transition-all disabled:opacity-50"
-          style={{ color: 'color-mix(in srgb, var(--color-accent) 60%, var(--color-text-primary) 40%)' }}
+          style={{ color: isPdf ? '#FF5252' : 'color-mix(in srgb, var(--color-accent) 60%, var(--color-text-primary) 40%)' }}
           title="Preview"
         >
           <Eye size={14} />
@@ -128,10 +90,10 @@ function FileItem({ file }: { file: Attachment }) {
       >
         <Download size={14} />
       </a>
-      {previewOpen && officePreviewUrl && (
+      {previewOpen && previewObjectUrl && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="w-[92vw] h-[88vh] rounded-ind-lg overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
-            <iframe src={officePreviewUrl} className="w-full h-full" title={file.original_filename} />
+            <iframe src={previewObjectUrl} className="w-full h-full" title={file.original_filename} />
           </div>
           <button
             type="button"
@@ -152,10 +114,21 @@ interface RightPanelProps {
 
 export function RightPanel({ width = 260 }: RightPanelProps) {
   const { t } = useTranslation()
-  const { rightPanel, setRightPanel, setView, searchQuery, setSearchQuery } = useUIStore()
+  const { rightPanel, setRightPanel, setView, view, searchQuery, setSearchQuery } = useUIStore()
   const { members, workspaceUsers, currentWorkspace, currentChannel, fetchWorkspaceUsers, inviteMember, kickMember, updateMemberRole } = useWorkspaceStore()
   const currentUser = useAuthStore((s) => s.user)
-  const { createThread, setCurrentThread, fetchThreads } = useDMStore()
+  const {
+    createThread,
+    setCurrentThread,
+    fetchThreads,
+    currentThread,
+    pinnedMessages: dmPinnedMessages,
+    fetchPinnedMessages: fetchDmPinnedMessages,
+  } = useDMStore()
+  const {
+    pinnedMessages: channelPinnedMessages,
+    fetchPinnedMessages: fetchChannelPinnedMessages,
+  } = useMessageStore()
 
   const handleOpenDM = async (userId: number) => {
     try {
@@ -171,7 +144,6 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
   const [filesLoading, setFilesLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<Message[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
-  const [pinnedMessages, setPinnedMessages] = useState<{ id: number; message: Message; created_at: string }[]>([])
   const [pinnedLoading, setPinnedLoading] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [invitingUserId, setInvitingUserId] = useState<number | null>(null)
@@ -232,17 +204,31 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
     }
   }
 
+  const scopedPinnedMessages = view === 'dm' ? dmPinnedMessages : channelPinnedMessages
+
   useEffect(() => {
-    if (rightPanel !== 'pinned' || !currentChannel) return
-    setPinnedLoading(true)
-    messageApi.pinnedMessages(currentChannel.id)
-      .then((res) => {
-        const items = extractResults(res as unknown as { id: number; message: Message; created_at: string }[])
-        setPinnedMessages(Array.isArray(items) ? items : [])
-      })
-      .catch(() => setPinnedMessages([]))
-      .finally(() => setPinnedLoading(false))
-  }, [rightPanel, currentChannel?.id])
+    if (rightPanel !== 'pinned') return
+    let active = true
+    const loadPinned = async () => {
+      if (view === 'workspace' && currentChannel) {
+        setPinnedLoading(true)
+        await fetchChannelPinnedMessages(currentChannel.id)
+        if (active) setPinnedLoading(false)
+        return
+      }
+      if (view === 'dm' && currentThread) {
+        setPinnedLoading(true)
+        await fetchDmPinnedMessages(currentThread.id)
+        if (active) setPinnedLoading(false)
+        return
+      }
+      if (active) setPinnedLoading(false)
+    }
+    void loadPinned()
+    return () => {
+      active = false
+    }
+  }, [rightPanel, view, currentChannel?.id, currentThread?.id, fetchChannelPinnedMessages, fetchDmPinnedMessages])
 
   useEffect(() => {
     if (rightPanel !== 'files' || !currentChannel) return
@@ -634,17 +620,28 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
               <div className="flex items-center justify-center py-8 text-muted">
                 <Loader2 size={18} className="animate-spin" />
               </div>
-            ) : pinnedMessages.length === 0 ? (
+            ) : scopedPinnedMessages.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-12 h-12 mx-auto mb-2 rounded-full ind-recess flex items-center justify-center">
                   <PinIcon size={20} className="text-muted" />
                 </div>
-                <p className="text-sm text-muted">No pinned messages</p>
+                <p className="text-sm text-muted">No pinned messages in this {view === 'dm' ? 'DM' : 'channel'}</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {pinnedMessages.map((pin) => (
-                  <div key={pin.id} className="p-2.5 rounded-ind ind-recess text-xs" style={{ border: '1px solid var(--color-border)' }}>
+                {scopedPinnedMessages.map((pin) => (
+                  <button
+                    key={pin.id}
+                    type="button"
+                    className="w-full text-start p-2.5 rounded-ind ind-recess text-xs transition-colors hover:bg-surface-inset"
+                    style={{ border: '1px solid var(--color-border)' }}
+                    onClick={() => {
+                      const found = jumpToMessage(pin.message.id)
+                      if (!found) {
+                        toast.info('Pinned message is outside current loaded history')
+                      }
+                    }}
+                  >
                     <div className="flex items-center gap-2 mb-1">
                       <Avatar
                         name={pin.message.user.profile?.display_name || pin.message.user.username}
@@ -655,7 +652,7 @@ export function RightPanel({ width = 260 }: RightPanelProps) {
                       </span>
                     </div>
                     <p className="text-muted whitespace-pre-wrap" dir="auto" style={{ unicodeBidi: 'plaintext' }}>{pin.message.content}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

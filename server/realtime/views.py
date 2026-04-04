@@ -9,7 +9,9 @@ from django.contrib.auth.models import User
 
 from apps.workspaces.models import WorkspaceMember, ChannelMember
 from apps.dm.models import DMParticipant
-from .sse import subscribe, unsubscribe
+from .sse import subscribe_many, unsubscribe_many
+
+HEARTBEAT_TIMEOUT_SECONDS = 15
 
 
 def authenticate_from_token(request):
@@ -59,37 +61,23 @@ class SSEEventStreamView(View):
         # Personal notification channel
         channels.append(f'user_{user.id}')
 
-        # Subscribe to all channels (deduplicated)
-        queues = {}
-        for ch in set(channels):
-            queues[ch] = subscribe(ch)
+        # Subscribe with one queue to avoid channel-by-channel polling loops.
+        channels = list(set(channels))
+        event_queue = subscribe_many(channels)
 
         def event_stream():
             try:
                 yield f"data: {json.dumps({'type': 'connected', 'channels': channels})}\n\n"
 
                 while True:
-                    event = None
-                    deadline = time.time() + 15
-                    while time.time() < deadline:
-                        remaining = deadline - time.time()
-                        for _ch, queue_obj in queues.items():
-                            try:
-                                event = queue_obj.get(timeout=min(0.05, remaining))
-                                break
-                            except std_queue.Empty:
-                                continue
-                        if event:
-                            break
-
-                    if event:
+                    try:
+                        event = event_queue.get(timeout=HEARTBEAT_TIMEOUT_SECONDS)
                         yield f"data: {json.dumps(event)}\n\n"
-                    else:
-                        # Send heartbeat after 15s of silence
+                    except std_queue.Empty:
+                        # Send heartbeat after silence timeout
                         yield f": heartbeat {int(time.time())}\n\n"
             finally:
-                for ch, queue_obj in queues.items():
-                    unsubscribe(ch, queue_obj)
+                unsubscribe_many(channels, event_queue)
 
         response = StreamingHttpResponse(
             event_stream(),

@@ -1,6 +1,5 @@
 import mimetypes
 from pathlib import Path
-from django.conf import settings
 from django.http import FileResponse, Http404
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
@@ -32,9 +31,6 @@ class FileUploadView(APIView):
         if not file:
             return Response({'detail': 'No file provided.'}, status=400)
 
-        if file.size > settings.MAX_UPLOAD_SIZE:
-            return Response({'detail': 'File too large.'}, status=400)
-
         channel_id = request.data.get('channel_id')
         dm_thread_id = request.data.get('dm_thread_id')
         message_content = request.data.get('message', '')
@@ -58,7 +54,9 @@ class FileUploadView(APIView):
 
         # Determine storage path and create message
         if channel_id:
-            channel = Channel.objects.select_related('workspace').get(id=channel_id)
+            channel = Channel.objects.select_related('workspace').filter(id=channel_id).first()
+            if not channel:
+                return Response({'detail': 'Channel not found.'}, status=404)
             workspace_id = channel.workspace_id
             # Check membership
             if not WorkspaceMember.objects.filter(
@@ -188,6 +186,15 @@ class FilePreviewView(APIView):
 
         # For images, serve the original as preview
         if attachment.mime_type.startswith('image/'):
+            file_path = Path(attachment.stored_path)
+            if file_path.exists():
+                return FileResponse(
+                    open(file_path, 'rb'),
+                    content_type=attachment.mime_type,
+                )
+
+        # PDFs are previewable in-browser through the same endpoint.
+        if 'pdf' in attachment.mime_type:
             file_path = Path(attachment.stored_path)
             if file_path.exists():
                 return FileResponse(

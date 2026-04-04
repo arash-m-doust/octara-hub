@@ -43,12 +43,38 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       const res = await workspaceApi.list()
       const list = extractResults(res)
-      set({ workspaces: list })
+      set((s) => ({
+        workspaces: list,
+        currentWorkspace: s.currentWorkspace
+          ? (list.find((workspace) => workspace.id === s.currentWorkspace!.id) ?? null)
+          : null,
+        currentChannel: s.currentWorkspace && !list.find((workspace) => workspace.id === s.currentWorkspace!.id)
+          ? null
+          : s.currentChannel,
+      }))
       // Auto-select first workspace if none selected
       if (!get().currentWorkspace && list.length > 0) {
         get().setCurrentWorkspace(list[0])
       }
     } catch (err) {
+      const status = (
+        err && typeof err === 'object' && 'status' in err
+          ? Number((err as { status?: unknown }).status)
+          : null
+      )
+      // Auth boundary failures are handled by auth restore/login flows; avoid noisy duplicate toasts.
+      if (status === 401 || status === 403) {
+        set({
+          workspaces: [],
+          currentWorkspace: null,
+          categories: [],
+          channels: [],
+          members: [],
+          workspaceUsers: [],
+          currentChannel: null,
+        })
+        return
+      }
       console.error('Failed to fetch workspaces:', err)
       toast.error('Failed to load workspaces')
     }

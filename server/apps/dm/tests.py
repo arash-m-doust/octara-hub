@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import DMThread, DMParticipant
+from apps.messaging.models import Message
 from apps.notifications.models import Notification
 
 
@@ -98,4 +99,45 @@ class DMRealtimeEventTests(APITestCase):
         read_url = reverse('dm_read', kwargs={'thread_id': self.thread.id})
 
         response = self.client.post(read_url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_participant_can_pin_and_unpin_dm_message(self):
+        self.client.force_authenticate(user=self.sender)
+        message_url = reverse('dm_messages', kwargs={'thread_id': self.thread.id})
+        create_response = self.client.post(message_url, {'content': 'pin me'}, format='json')
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        message_id = create_response.data['id']
+
+        pin_url = reverse('dm_message_pin', kwargs={'thread_id': self.thread.id, 'message_id': message_id})
+        list_url = reverse('dm_pins', kwargs={'thread_id': self.thread.id})
+
+        pin_response = self.client.post(pin_url)
+        self.assertEqual(pin_response.status_code, status.HTTP_201_CREATED)
+
+        list_response = self.client.get(list_url)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        results = list_response.data.get('results', list_response.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['message']['id'], message_id)
+
+        unpin_response = self.client.delete(pin_url)
+        self.assertEqual(unpin_response.status_code, status.HTTP_204_NO_CONTENT)
+        list_response_after = self.client.get(list_url)
+        results_after = list_response_after.data.get('results', list_response_after.data)
+        self.assertEqual(len(results_after), 0)
+
+    def test_non_participant_cannot_pin_dm_message(self):
+        message = Message.objects.create(
+            dm_thread=self.thread,
+            user=self.sender,
+            content='no outsider pin',
+        )
+        outsider = User.objects.create_user(
+            username='dm-outsider',
+            email='dm-outsider@example.com',
+            password='Password123!@#',
+        )
+        self.client.force_authenticate(user=outsider)
+        pin_url = reverse('dm_message_pin', kwargs={'thread_id': self.thread.id, 'message_id': message.id})
+        response = self.client.post(pin_url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

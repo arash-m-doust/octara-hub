@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Pin } from 'lucide-react'
 import { useDMStore } from '@/stores/dmStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useUIStore } from '@/stores/uiStore'
 import { realtime } from '@/realtime/connection'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { MessageInput } from '@/components/chat/MessageInput'
@@ -10,7 +12,19 @@ import { CallButton } from '@/components/call/CallButton'
 
 export function DMChatView() {
   const { t } = useTranslation()
-  const { currentThread, messages, isLoading, fetchMessages, sendMessage, addMessage, markThreadRead } = useDMStore()
+  const {
+    currentThread,
+    messages,
+    isLoading,
+    fetchMessages,
+    sendMessage,
+    addMessage,
+    markThreadRead,
+    replyTo,
+    fetchPinnedMessages,
+    removeMessage,
+  } = useDMStore()
+  const { toggleRightPanel } = useUIStore()
   const { user } = useAuthStore()
   const bottomRef = useRef<HTMLDivElement>(null)
   const readDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -27,37 +41,57 @@ export function DMChatView() {
 
   useEffect(() => {
     if (!currentThread) return
-    fetchMessages(currentThread.id)
+    void fetchMessages(currentThread.id)
+    void fetchPinnedMessages(currentThread.id)
 
-    const unsub = realtime.on('message.created', (data: unknown) => {
-      const { message } = data as { message: Message }
-      if (message.dm_thread === currentThread.id) {
-        addMessage(message)
-        scheduleMarkRead()
-      }
-    })
-    const unsubTyping = realtime.on('dm.typing.start', (data: unknown) => {
-      const { thread_id, user_id, username } = data as { thread_id: number; user_id: number; username: string }
-      if (thread_id !== currentThread.id || user_id === user?.id) return
-      setTypingUsers((prev) => {
-        const filtered = prev.filter((u) => u.userId !== user_id)
-        return [...filtered, { userId: user_id, username, expiresAt: Date.now() + 3000 }]
-      })
-      setTimeout(() => {
-        setTypingUsers((prev) => prev.filter((u) => u.expiresAt > Date.now()))
-      }, 3100)
-    })
+    const unsubs = [
+      realtime.on('message.created', (data: unknown) => {
+        const { message } = data as { message: Message }
+        if (message.dm_thread === currentThread.id) {
+          addMessage(message)
+          scheduleMarkRead()
+        }
+      }),
+      realtime.on('dm.typing.start', (data: unknown) => {
+        const { thread_id, user_id, username } = data as { thread_id: number; user_id: number; username: string }
+        if (thread_id !== currentThread.id || user_id === user?.id) return
+        setTypingUsers((prev) => {
+          const filtered = prev.filter((u) => u.userId !== user_id)
+          return [...filtered, { userId: user_id, username, expiresAt: Date.now() + 3000 }]
+        })
+        setTimeout(() => {
+          setTypingUsers((prev) => prev.filter((u) => u.expiresAt > Date.now()))
+        }, 3100)
+      }),
+      realtime.on('dm.message.pinned', (data: unknown) => {
+        const { thread_id } = data as { thread_id: number }
+        if (thread_id === currentThread.id) {
+          void fetchPinnedMessages(thread_id)
+        }
+      }),
+      realtime.on('dm.message.unpinned', (data: unknown) => {
+        const { thread_id } = data as { thread_id: number }
+        if (thread_id === currentThread.id) {
+          void fetchPinnedMessages(thread_id)
+        }
+      }),
+      realtime.on('dm.message.deleted', (data: unknown) => {
+        const { thread_id, message_id } = data as { thread_id: number; message_id: number }
+        if (thread_id === currentThread.id) {
+          removeMessage(message_id)
+        }
+      }),
+    ]
 
     return () => {
-      unsub()
-      unsubTyping()
+      unsubs.forEach((unsub) => unsub())
       if (readDebounceRef.current) {
         clearTimeout(readDebounceRef.current)
         readDebounceRef.current = null
       }
       setTypingUsers([])
     }
-  }, [currentThread?.id, fetchMessages, addMessage, user?.id, markThreadRead])
+  }, [currentThread?.id, fetchMessages, fetchPinnedMessages, addMessage, user?.id, markThreadRead, removeMessage])
 
   useEffect(() => {
     if (!currentThread) return
@@ -90,7 +124,18 @@ export function DMChatView() {
           <span className="ind-led ind-led-on me-2" style={{ backgroundColor: 'var(--color-accent)', width: '6px', height: '6px' }} />
           <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{displayName}</h3>
         </div>
-        <CallButton dmThreadId={currentThread.id} />
+        <div className="flex items-center gap-1">
+          <CallButton dmThreadId={currentThread.id} />
+          <button
+            type="button"
+            onClick={() => toggleRightPanel('pinned')}
+            className="w-7 h-7 flex items-center justify-center rounded-ind ind-button p-0 text-muted"
+            title={t('chat.pinned')}
+            aria-label="View pinned messages"
+          >
+            <Pin size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -123,7 +168,7 @@ export function DMChatView() {
       )}
 
       <MessageInput
-        onSend={(content) => sendMessage(currentThread.id, content)}
+        onSend={(content) => sendMessage(currentThread.id, content, replyTo?.id)}
         placeholder={`Message ${displayName}`}
         uploadTarget={{ type: 'dm', id: currentThread.id }}
       />

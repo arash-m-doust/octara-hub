@@ -46,6 +46,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     authStorage.setAccessToken(access)
     authStorage.setRefreshToken(refresh)
     const user = await authApi.me()
+    // Canonicalize session key from backend identity (avoids casing mismatches on reload).
+    authStorage.bindSessionToUsername(user.username)
     resetAllStores()
     set({ user, isAuthenticated: true })
   },
